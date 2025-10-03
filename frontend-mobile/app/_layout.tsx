@@ -1,9 +1,28 @@
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
-import React from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
 
 import { AppProviders } from '@/providers/AppProviders';
 
+SplashScreen.preventAutoHideAsync().catch(() => null);
+
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    ...Ionicons.font
+  });
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync().catch(() => null);
+    }
+  }, [fontError, fontsLoaded]);
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
+
   return (
     <AppProviders>
       <Stack screenOptions={{ headerShown: false }}>
