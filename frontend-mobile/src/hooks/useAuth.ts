@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { useMutation } from '@tanstack/react-query';
 
-import { login } from '@/api/auth';
-import type { LoginRequest, TokenResponse } from '@/types/api';
+import { login, register } from '@/api/auth';
+import type { LoginRequest, RegisterRequest, TokenResponse } from '@/types/api';
 import { useAuthStore, type AuthState } from '@/store/authStore';
 
 export const useAuthStatus = () => {
@@ -26,6 +26,20 @@ export const useLoginMutation = () => {
 
   return useMutation<TokenResponse, Error, LoginRequest>({
     mutationFn: login,
+    onSuccess: (tokens: TokenResponse) => {
+      setTokens(tokens);
+    }
+  });
+};
+
+export const useRegisterMutation = () => {
+  const setTokens = useAuthStore((store: AuthState) => store.setTokens);
+
+  return useMutation<TokenResponse, Error, RegisterRequest>({
+    mutationFn: async (payload) => {
+      await register(payload);
+      return login({ email: payload.email, password: payload.password });
+    },
     onSuccess: (tokens: TokenResponse) => {
       setTokens(tokens);
     }

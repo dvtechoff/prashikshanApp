@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { router } from 'expo-router';
+import { Link, router } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { useLoginMutation } from '@/hooks/useAuth';
+import { getErrorMessage } from '@/utils/error';
 
 interface LoginFormState {
   email: string;
@@ -35,7 +36,7 @@ export default function LoginScreen() {
       await loginMutation.mutateAsync(formState);
       router.replace('/(app)');
     } catch (error) {
-      Alert.alert('Login failed', 'Please double-check your credentials and try again.');
+      Alert.alert('Login failed', getErrorMessage(error, 'Please double-check your credentials.'));
     }
   };
 
@@ -85,9 +86,18 @@ export default function LoginScreen() {
 
       {loginMutation.isError && (
         <Text style={styles.errorText}>
-          {loginMutation.failureReason?.message ?? 'Unable to sign in right now.'}
+          {getErrorMessage(
+            loginMutation.failureReason,
+            'Unable to sign in right now. Please try again.'
+          )}
         </Text>
       )}
+
+  <Link href="../register" asChild>
+        <Pressable style={styles.secondaryAction}>
+          <Text style={styles.secondaryText}>Don&apos;t have an account? Create one</Text>
+        </Pressable>
+      </Link>
     </View>
   );
 }
@@ -146,5 +156,14 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: '#dc2626',
     textAlign: 'center'
+  },
+  secondaryAction: {
+    marginTop: 24,
+    alignItems: 'center'
+  },
+  secondaryText: {
+    color: '#2563eb',
+    fontSize: 15,
+    fontWeight: '600'
   }
 });

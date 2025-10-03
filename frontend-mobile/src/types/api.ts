@@ -29,3 +29,11 @@ export interface UserUpdateRequest {
   name?: string | null;
   college_id?: string | null;
 }
+
+export interface RegisterRequest {
+  name: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  college_id?: string | null;
+}

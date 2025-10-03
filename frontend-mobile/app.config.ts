@@ -1,5 +1,9 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
+declare const process: {
+  env?: Record<string, string | undefined>;
+};
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Prashikshan',
@@ -7,24 +11,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: 'prashikshan',
   version: '1.0.0',
   orientation: 'portrait',
-  icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
-  splash: {
-    image: './assets/splash.png',
-    resizeMode: 'contain',
-    backgroundColor: '#ffffff'
-  },
   assetBundlePatterns: ['**/*'],
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.prashikshan.app'
   },
   android: {
-    package: 'com.prashikshan.app',
-    adaptiveIcon: {
-      foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#ffffff'
-    }
+    package: 'com.prashikshan.app'
   },
   web: {
     bundler: 'metro'
@@ -34,6 +28,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     typedRoutes: true
   },
   extra: {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:8000'
+    apiUrl: process.env?.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:8000'
   }
 });

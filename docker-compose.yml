@@ -17,19 +17,19 @@ services:
       PGADMIN_DEFAULT_PASSWORD: admin@123
     ports:
       - "8080:80"
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    volumes:
-      - ./backend:/app
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://prashiskhan_Admin:VermajiAdmin@db:5432/prashiskshan
-      - SECRET_KEY=VermaJiPrashikshan
-      - S3_ENDPOINT=
-    depends_on:
-      - db
-    ports:
-      - "8000:8000"
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   volumes:
+  #     - ./backend:/app
+  #   environment:
+  #     - DATABASE_URL=postgresql+asyncpg://prashiskhan_Admin:VermajiAdmin@db:5432/prashiskshan
+  #     - SECRET_KEY=VermaJiPrashikshan
+  #     - S3_ENDPOINT=
+  #   depends_on:
+  #     - db
+  #   ports:
+  #     - "8000:8000"
 volumes:
   pgdata:

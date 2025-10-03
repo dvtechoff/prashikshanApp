@@ -1,6 +1,12 @@
 import { apiClient } from './client';
 
-import type { LoginRequest, RefreshRequest, TokenResponse } from '@/types/api';
+import type {
+  LoginRequest,
+  RefreshRequest,
+  RegisterRequest,
+  TokenResponse,
+  UserResponse
+} from '@/types/api';
 
 export const login = async (payload: LoginRequest): Promise<TokenResponse> => {
   const { data } = await apiClient.post<TokenResponse>('/api/v1/auth/login', payload);
@@ -12,6 +18,7 @@ export const refreshTokens = async (payload: RefreshRequest): Promise<TokenRespo
   return data;
 };
 
-export const register = async (payload: unknown): Promise<void> => {
-  await apiClient.post('/api/v1/auth/register', payload);
+export const register = async (payload: RegisterRequest): Promise<UserResponse> => {
+  const { data } = await apiClient.post<UserResponse>('/api/v1/auth/register', payload);
+  return data;
 };
