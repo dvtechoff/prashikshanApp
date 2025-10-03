@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import {
   ActivityIndicator,
@@ -7,6 +7,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View
 } from 'react-native';
 
@@ -19,6 +20,8 @@ export default function LogbookScreen() {
   const { data: currentUser } = useCurrentUserQuery();
   const { data, isLoading, isRefetching, refetch } = useLogbookEntryList();
   const { drafts, syncDraft, removeDraft } = useLogbookDraftActions();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterApproval, setFilterApproval] = useState<'ALL' | 'APPROVED' | 'PENDING'>('ALL');
 
   const role = currentUser?.role ?? 'STUDENT';
   const isFaculty = role === 'FACULTY';
@@ -57,10 +60,31 @@ export default function LogbookScreen() {
       approved: entry.approved,
       applicationId: entry.application_id
     }));
-    return [...mappedDrafts, ...mappedEntries].sort((a, b) =>
+
+    let combined = [...mappedDrafts, ...mappedEntries];
+
+    // Faculty filtering
+    if (isFaculty) {
+      if (filterApproval !== 'ALL') {
+        combined = combined.filter((item) => {
+          if (item.type === 'DRAFT') {
+            return false;
+          }
+          return item.approved === (filterApproval === 'APPROVED');
+        });
+      }
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        combined = combined.filter((item) =>
+          item.description.toLowerCase().includes(query)
+        );
+      }
+    }
+
+    return combined.sort((a, b) =>
       new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime()
     );
-  }, [data, drafts]);
+  }, [data, drafts, filterApproval, isFaculty, searchQuery]);
 
   return (
     <View style={styles.container}>
@@ -91,6 +115,36 @@ export default function LogbookScreen() {
           <Text style={styles.draftBody}>
             {drafts.length} draft{drafts.length > 1 ? 's are' : ' is'} waiting to sync.
           </Text>
+        </View>
+      )}
+
+      {isFaculty && (
+        <View style={styles.filterSection}>
+          <TextInput
+            placeholder="Search logbook descriptions"
+            placeholderTextColor="#94a3b8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            style={styles.searchInput}
+          />
+          <View style={styles.filterRow}>
+            {(['ALL', 'PENDING', 'APPROVED'] as const).map((status) => (
+              <Pressable
+                key={status}
+                style={[styles.filterChip, filterApproval === status && styles.filterChipActive]}
+                onPress={() => setFilterApproval(status)}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    filterApproval === status && styles.filterChipTextActive
+                  ]}
+                >
+                  {status}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
       )}
 
@@ -315,5 +369,43 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#dc2626'
+  },
+  filterSection: {
+    padding: 16,
+    gap: 12,
+  },
+  searchInput: {
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#fff',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  filterChipActive: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+  filterChipText: {
+    color: '#94a3b8',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  filterChipTextActive: {
+    color: '#fff',
   }
 });

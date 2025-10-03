@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import {
   ActivityIndicator,
@@ -7,6 +7,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View
 } from 'react-native';
 
@@ -60,8 +61,11 @@ export default function ApplicationsScreen() {
   const { data: currentUser } = useCurrentUserQuery();
   const { data, isLoading, isRefetching, refetch } = useApplicationList();
   const { data: internships } = useInternshipList();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
 
   const role = currentUser?.role ?? 'STUDENT';
+  const isFaculty = role === 'FACULTY';
 
   const pendingCount = useMemo(() => {
     if (!data) {
@@ -79,6 +83,30 @@ export default function ApplicationsScreen() {
       return acc;
     }, {} as Record<string, string>);
   }, [internships]);
+
+  const filteredApplications = useMemo(() => {
+    if (!data) {
+      return [];
+    }
+    let filtered = [...data];
+
+    // Faculty-specific filtering
+    if (isFaculty) {
+      if (filterStatus !== 'ALL') {
+        filtered = filtered.filter((app) => app.faculty_status === filterStatus);
+      }
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        filtered = filtered.filter((app) => {
+          const internshipTitle = internshipTitleMap[app.internship_id]?.toLowerCase() ?? '';
+          const studentId = app.student_id.toLowerCase();
+          return internshipTitle.includes(query) || studentId.includes(query);
+        });
+      }
+    }
+
+    return filtered;
+  }, [data, filterStatus, isFaculty, internshipTitleMap, searchQuery]);
 
   const headerText = useMemo(() => {
     switch (role) {
@@ -123,6 +151,36 @@ export default function ApplicationsScreen() {
         </Pressable>
       )}
 
+      {isFaculty && (
+        <View style={styles.filterSection}>
+          <TextInput
+            placeholder="Search by internship or student ID"
+            placeholderTextColor="#94a3b8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            style={styles.searchInput}
+          />
+          <View style={styles.filterRow}>
+            {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => (
+              <Pressable
+                key={status}
+                style={[styles.filterChip, filterStatus === status && styles.filterChipActive]}
+                onPress={() => setFilterStatus(status)}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    filterStatus === status && styles.filterChipTextActive
+                  ]}
+                >
+                  {status}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
+
       {isLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#2563eb" />
@@ -130,7 +188,7 @@ export default function ApplicationsScreen() {
         </View>
       ) : (
         <FlatList
-          data={data ?? []}
+          data={filteredApplications}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
@@ -255,5 +313,43 @@ const styles = StyleSheet.create({
   emptyDescription: {
     color: '#64748b',
     textAlign: 'center'
+  },
+  filterSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    gap: 12
+  },
+  searchInput: {
+    height: 48,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    color: '#0f172a'
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+    backgroundColor: '#ffffff'
+  },
+  filterChipActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb'
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1e293b'
+  },
+  filterChipTextActive: {
+    color: '#ffffff'
   }
 });

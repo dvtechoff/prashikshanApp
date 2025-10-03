@@ -215,7 +215,7 @@ export default function DashboardScreen() {
         <Text style={styles.subtitle}>Here’s a quick look at your internship journey.</Text>
       </View>
 
-      <View style={[styles.statsRow, stats.length === 4 && styles.statsRowWrap]}>
+      <View style={styles.statsRow}>
         {stats.map((stat) => (
           <StatCard key={stat.label} label={stat.label} value={stat.value} />
         ))}
@@ -286,14 +286,12 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12
-  },
-  statsRowWrap: {
-    flexWrap: 'wrap'
   },
   statCard: {
     flex: 1,
-    minWidth: '48%',
+    minWidth: '45%',
     backgroundColor: '#1d4ed8',
     borderRadius: 16,
     paddingVertical: 20,
