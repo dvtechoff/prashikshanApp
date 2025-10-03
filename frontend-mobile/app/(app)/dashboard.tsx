@@ -85,6 +85,96 @@ export default function DashboardScreen() {
     ];
   }, [applications, logbookEntries, notifications, role, internships]);
 
+  const quickLinks = useMemo(() => {
+    if (role === 'FACULTY') {
+      return [
+        {
+          title: 'Review applications',
+          description: 'Approve or reject internship applications with feedback.',
+          href: '/(app)/applications'
+        },
+        {
+          title: 'Approve logbooks',
+          description: 'Review student logbook submissions and share comments.',
+          href: '/(app)/logbook'
+        },
+        {
+          title: 'Credit sign-offs',
+          description: 'Update NEP credit approvals and track pending students.',
+          href: '/(app)/credits'
+        },
+        {
+          title: 'Download reports',
+          description: 'Access internship summaries and PDF reports.',
+          href: '/(app)/credits'
+        },
+        {
+          title: 'Analytics dashboard',
+          description: 'Monitor participation trends across your advisees.',
+          href: '/(app)/analytics'
+        }
+      ];
+    }
+
+    if (role === 'INDUSTRY') {
+      return [
+        {
+          title: 'Manage postings',
+          description: 'Create new internships or update existing listings.',
+          href: '/(app)/internships'
+        },
+        {
+          title: 'Review applicants',
+          description: 'See student profiles, resumes, and respond quickly.',
+          href: '/(app)/applications'
+        },
+        {
+          title: 'Intern progress',
+          description: 'Track logbook updates shared by interns.',
+          href: '/(app)/logbook'
+        },
+        {
+          title: 'Insights',
+          description: 'Understand internship performance and engagement.',
+          href: '/(app)/analytics'
+        }
+      ];
+    }
+
+    return [
+      {
+        title: 'Browse internships',
+        description: 'Find new opportunities that match your skills.',
+        href: '/(app)/internships'
+      },
+      {
+        title: 'Track applications',
+        description: 'See where each application stands.',
+        href: '/(app)/applications'
+      },
+      {
+        title: 'Update logbook',
+        description: 'Keep your weekly progress up to date.',
+        href: '/(app)/logbook'
+      },
+      {
+        title: 'Track credits',
+        description: 'Download reports and monitor credit completion.',
+        href: '/(app)/credits'
+      },
+      {
+        title: 'Skill readiness modules',
+        description: 'Complete prep modules before joining an internship.',
+        href: '/(app)/skill-readiness'
+      },
+      {
+        title: 'View analytics',
+        description: 'Explore participation across internships.',
+        href: '/(app)/analytics'
+      }
+    ];
+  }, [role]);
+
   const handleSignOut = async () => {
     await signOut();
     router.replace('/(auth)/login');
@@ -155,41 +245,9 @@ export default function DashboardScreen() {
 
       <View style={styles.quickLinks}>
         <Text style={styles.quickLinksTitle}>Quick actions</Text>
-        <QuickLink
-          title="Browse internships"
-          description="Find new opportunities that match your skills."
-          href="/(app)/internships"
-        />
-        <QuickLink
-          title="Track applications"
-          description="See where each application stands."
-          href="/(app)/applications"
-        />
-        <QuickLink
-          title="Update logbook"
-          description="Keep your weekly progress up to date."
-          href="/(app)/logbook"
-        />
-        <QuickLink
-          title="Review alerts"
-          description="Catch up on approvals and reminders."
-          href="/(app)/notifications"
-        />
-        <QuickLink
-          title="Track credits"
-          description="Download reports and monitor credit completion."
-          href="/(app)/credits"
-        />
-        <QuickLink
-          title="Skill readiness"
-          description="Complete prep modules before joining an internship."
-          href="/(app)/skill-readiness"
-        />
-        <QuickLink
-          title="View analytics"
-          description="Explore participation across internships."
-          href="/(app)/analytics"
-        />
+        {quickLinks.map((link) => (
+          <QuickLink key={link.title} {...link} />
+        ))}
       </View>
 
       <Pressable style={styles.primaryButton} onPress={handleSignOut}>

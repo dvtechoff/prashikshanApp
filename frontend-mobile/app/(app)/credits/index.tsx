@@ -1,7 +1,10 @@
 import { ScrollView, StyleSheet, Text, View, Pressable, Alert } from 'react-native';
+import { router } from 'expo-router';
 
 import { useApplicationList } from '@/hooks/useApplications';
 import { useLogbookEntryList } from '@/hooks/useLogbookEntries';
+import { useCurrentUserQuery } from '@/hooks/useCurrentUser';
+import { useInternshipList } from '@/hooks/useInternships';
 
 const Card = ({ children }: { children: React.ReactNode }) => (
   <View style={styles.card}>{children}</View>
@@ -10,6 +13,10 @@ const Card = ({ children }: { children: React.ReactNode }) => (
 export default function CreditsScreen() {
   const { data: applications } = useApplicationList();
   const { data: logbookEntries } = useLogbookEntryList();
+  const { data: currentUser } = useCurrentUserQuery();
+  const { data: internships } = useInternshipList();
+
+  const role = currentUser?.role ?? 'STUDENT';
 
   const approvedApplications = applications?.filter(
     (item) => item.industry_status === 'APPROVED' && item.faculty_status === 'APPROVED'
@@ -21,6 +28,148 @@ export default function CreditsScreen() {
 
   const creditEstimate = approvedApplications * 4;
   const hoursProgress = Math.min(100, Math.round((totalHours / 160) * 100));
+
+  if (role === 'FACULTY') {
+    const pendingFacultyApprovals = (applications ?? []).filter(
+      (item) => item.faculty_status === 'PENDING'
+    );
+    const awaitingIndustry = (applications ?? []).filter(
+      (item) => item.faculty_status === 'APPROVED' && item.industry_status === 'PENDING'
+    ).length;
+    const awarded = approvedApplications;
+
+    return (
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>Credit approvals</Text>
+        <Text style={styles.subtitle}>
+          Review student submissions, confirm NEP credits, and download supporting reports.
+        </Text>
+
+        <View style={styles.grid}>
+          <Card>
+            <Text style={styles.metricValue}>{pendingFacultyApprovals.length}</Text>
+            <Text style={styles.metricLabel}>Pending faculty approvals</Text>
+          </Card>
+          <Card>
+            <Text style={styles.metricValue}>{awaitingIndustry}</Text>
+            <Text style={styles.metricLabel}>Awaiting industry sign-off</Text>
+          </Card>
+          <Card>
+            <Text style={styles.metricValue}>{awarded}</Text>
+            <Text style={styles.metricLabel}>Credits awarded</Text>
+          </Card>
+        </View>
+
+        <Card>
+          <Text style={styles.sectionTitle}>Queue</Text>
+          <Text style={styles.helperText}>Tap an item to open the application detail screen.</Text>
+          {pendingFacultyApprovals.length === 0 ? (
+            <Text style={styles.emptyDescription}>No pending credit approvals right now.</Text>
+          ) : (
+            pendingFacultyApprovals.map((item) => {
+              const internshipTitle = internships?.find((intern) => intern.id === item.internship_id)?.title;
+              return (
+                <Pressable
+                  key={item.id}
+                  style={styles.rowItem}
+                  onPress={() =>
+                    router.push({ pathname: '/(app)/applications/[id]', params: { id: item.id } })
+                  }
+                >
+                  <View>
+                    <Text style={styles.reportTitle}>{internshipTitle ?? 'Internship application'}</Text>
+                    <Text style={styles.reportDescription}>
+                      Student #{item.student_id} • Submitted {new Date(item.applied_at).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <Text style={styles.link}>Review</Text>
+                </Pressable>
+              );
+            })
+          )}
+        </Card>
+
+        <Card>
+          <Text style={styles.sectionTitle}>Reports</Text>
+          <Text style={styles.helperText}>
+            Download compiled reports to archive approvals or share with programme leadership.
+          </Text>
+          {['Pending approvals', 'Completed credits', 'All internship reports'].map((report) => (
+            <Pressable
+              key={report}
+              style={styles.reportRow}
+              onPress={() =>
+                Alert.alert('Download coming soon', `${report} download will open shortly.`)
+              }
+            >
+              <View>
+                <Text style={styles.reportTitle}>{report}</Text>
+                <Text style={styles.reportDescription}>PDF • generated from logbooks and applications</Text>
+              </View>
+              <Text style={styles.link}>Download</Text>
+            </Pressable>
+          ))}
+        </Card>
+      </ScrollView>
+    );
+  }
+
+  if (role === 'INDUSTRY') {
+    const industryApplications = applications?.filter((item) => item.industry_status === 'PENDING').length ?? 0;
+    const activeInterns = (applications ?? []).filter(
+      (item) => item.industry_status === 'APPROVED' && item.faculty_status === 'APPROVED'
+    ).length;
+
+    return (
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>Internship compliance</Text>
+        <Text style={styles.subtitle}>
+          Stay aligned with faculty by tracking which interns still need your confirmation.
+        </Text>
+
+        <View style={styles.grid}>
+          <Card>
+            <Text style={styles.metricValue}>{industryApplications}</Text>
+            <Text style={styles.metricLabel}>Decisions pending</Text>
+          </Card>
+          <Card>
+            <Text style={styles.metricValue}>{activeInterns}</Text>
+            <Text style={styles.metricLabel}>Interns cleared</Text>
+          </Card>
+        </View>
+
+        <Card>
+          <Text style={styles.sectionTitle}>Need action?</Text>
+          <Text style={styles.helperText}>
+            Faculty award credits after your approval. Review applications to keep students moving.
+          </Text>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => router.push('/(app)/applications' as never)}
+          >
+            <Text style={styles.primaryButtonText}>Go to applications</Text>
+          </Pressable>
+        </Card>
+
+        <Card>
+          <Text style={styles.sectionTitle}>Reports</Text>
+          <Text style={styles.helperText}>
+            Export intern performance summaries to share with your HR or L&D teams.
+          </Text>
+          <Pressable
+            style={styles.reportRow}
+            onPress={() => Alert.alert('Export coming soon', 'CSV export will be added shortly.')}
+          >
+            <View>
+              <Text style={styles.reportTitle}>Intern roster</Text>
+              <Text style={styles.reportDescription}>CSV • includes contact info and credit status</Text>
+            </View>
+            <Text style={styles.link}>Export</Text>
+          </Pressable>
+        </Card>
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -144,6 +293,18 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 13
   },
+  emptyDescription: {
+    color: '#64748b',
+    marginTop: 12
+  },
+  rowItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0'
+  },
   reportRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -163,6 +324,18 @@ const styles = StyleSheet.create({
   link: {
     color: '#2563eb',
     fontWeight: '600'
+  },
+  primaryButton: {
+    marginTop: 12,
+    backgroundColor: '#2563eb',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center'
+  },
+  primaryButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 15
   },
   checklist: {
     gap: 8

@@ -1,7 +1,15 @@
 import { useMemo } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ColorSchemeName, useColorScheme } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
+
+import { useCurrentUserQuery } from '@/hooks/useCurrentUser';
 
 const iconNameMap: Record<
   string,
@@ -13,7 +21,9 @@ const iconNameMap: Record<
   logbook: { focused: 'book', unfocused: 'book-outline' },
   analytics: { focused: 'analytics', unfocused: 'analytics-outline' },
   notifications: { focused: 'notifications', unfocused: 'notifications-outline' },
-  profile: { focused: 'person-circle', unfocused: 'person-circle-outline' }
+  profile: { focused: 'person-circle', unfocused: 'person-circle-outline' },
+  'skill-readiness': { focused: 'school', unfocused: 'school-outline' },
+  credits: { focused: 'ribbon', unfocused: 'ribbon-outline' }
 };
 
 const tabBarStyle = {
@@ -24,33 +34,75 @@ const tabBarStyle = {
   backgroundColor: '#ffffff'
 };
 
-const headerStyleByTheme = (scheme: ColorSchemeName) => ({
-  backgroundColor: scheme === 'dark' ? '#0f172a' : '#ffffff'
-});
-
 export default function AppLayout() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const {
+    data: currentUser,
+    isLoading,
+    isError,
+    refetch
+  } = useCurrentUserQuery();
 
   const tabColors = useMemo(
     () => ({
       active: '#2563eb',
-      inactive: '#94a3b8',
-      headerTint: isDark ? '#f8fafc' : '#0f172a'
+      inactive: '#94a3b8'
     }),
-    [isDark]
+    []
   );
+
+  const tabsByRole: Record<string, string[]> = {
+    STUDENT: ['dashboard', 'internships', 'applications', 'logbook', 'notifications', 'profile'],
+    FACULTY: ['dashboard', 'applications', 'logbook', 'analytics', 'notifications', 'profile'],
+    INDUSTRY: ['dashboard', 'internships', 'applications', 'analytics', 'notifications', 'profile'],
+    ADMIN: ['dashboard', 'analytics', 'notifications', 'profile']
+  };
+
+  const tabOptions: Record<
+    string,
+    {
+      title: string;
+    }
+  > = {
+    dashboard: { title: 'Dashboard' },
+    internships: { title: 'Internships' },
+    applications: { title: 'Applications' },
+    logbook: { title: 'Logbook' },
+    analytics: { title: 'Analytics' },
+    notifications: { title: 'Alerts' },
+    profile: { title: 'Profile' },
+    credits: { title: 'Credits' },
+    'skill-readiness': { title: 'Readiness' }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#2563eb" />
+        <Text style={styles.statusText}>Loading your workspace…</Text>
+      </View>
+    );
+  }
+
+  if (isError || !currentUser) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorTitle}>We couldn’t confirm your role.</Text>
+        <Text style={styles.statusText}>Check your network and try again.</Text>
+        <Pressable style={styles.retryButton} onPress={() => refetch()}>
+          <Text style={styles.retryText}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  const activeTabs = tabsByRole[currentUser.role] ?? tabsByRole.STUDENT;
+
+  const hiddenTabs = Object.keys(tabOptions).filter((name) => !activeTabs.includes(name));
 
   return (
     <Tabs
       screenOptions={({ route }) => ({
-        headerShown: true,
-        headerStyle: headerStyleByTheme(colorScheme),
-        headerShadowVisible: false,
-        headerTitleStyle: {
-          fontWeight: '600'
-        },
-        headerTintColor: tabColors.headerTint,
+        headerShown: false,
         tabBarStyle,
         tabBarActiveTintColor: tabColors.active,
         tabBarInactiveTintColor: tabColors.inactive,
@@ -67,13 +119,57 @@ export default function AppLayout() {
         }
       })}
     >
-      <Tabs.Screen name="dashboard" options={{ title: 'Dashboard' }} />
-      <Tabs.Screen name="internships" options={{ title: 'Internships' }} />
-      <Tabs.Screen name="applications" options={{ title: 'Applications' }} />
-      <Tabs.Screen name="logbook" options={{ title: 'Logbook' }} />
-      <Tabs.Screen name="analytics" options={{ title: 'Analytics' }} />
-      <Tabs.Screen name="notifications" options={{ title: 'Alerts' }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+      {activeTabs.map((name) => (
+        <Tabs.Screen
+          key={name}
+          name={name}
+          options={{
+            title: tabOptions[name]?.title ?? name,
+            href: undefined
+          }}
+        />
+      ))}
+      {hiddenTabs.map((name) => (
+        <Tabs.Screen
+          key={`hidden-${name}`}
+          name={name}
+          options={{
+            title: tabOptions[name]?.title ?? name,
+            href: null
+          }}
+        />
+      ))}
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    padding: 24,
+    backgroundColor: '#f8fafc'
+  },
+  statusText: {
+    color: '#475569'
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#0f172a',
+    textAlign: 'center'
+  },
+  retryButton: {
+    marginTop: 8,
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10
+  },
+  retryText: {
+    color: '#ffffff',
+    fontWeight: '600'
+  }
+});

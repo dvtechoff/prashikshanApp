@@ -66,7 +66,7 @@ export default function RegisterScreen() {
 
     try {
       await registerMutation.mutateAsync(payload);
-      router.replace('/(app)');
+         router.replace('/(app)/dashboard');
     } catch (error) {
       Alert.alert('Could not create account', getErrorMessage(error));
     }

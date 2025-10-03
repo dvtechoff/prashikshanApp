@@ -16,6 +16,7 @@ import {
 
 import { useApplyForInternship } from '@/hooks/useApplications';
 import { useInternshipList } from '@/hooks/useInternships';
+import { useCurrentUserQuery } from '@/hooks/useCurrentUser';
 import { getErrorMessage } from '@/utils/error';
 
 interface FormState {
@@ -33,6 +34,7 @@ const initialState: FormState = {
 export default function NewApplicationScreen() {
   const params = useLocalSearchParams<{ internshipId?: string }>();
   const { data: internships, isLoading } = useInternshipList();
+  const { data: currentUser } = useCurrentUserQuery();
   const [formState, setFormState] = useState<FormState>(initialState);
   const applyMutation = useApplyForInternship();
 
@@ -64,6 +66,23 @@ export default function NewApplicationScreen() {
       Alert.alert('Could not submit application', getErrorMessage(error));
     }
   };
+
+  if (currentUser?.role && currentUser.role !== 'STUDENT') {
+    return (
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={96}
+      >
+        <ScrollView contentContainerStyle={styles.container}>
+          <Text style={styles.title}>Applications restricted</Text>
+          <Text style={styles.subtitle}>
+            Only students can submit internship applications. Switch to a student account to continue.
+          </Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
     <KeyboardAvoidingView

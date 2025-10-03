@@ -34,7 +34,7 @@ export default function LoginScreen() {
   const handleSubmit = async () => {
     try {
       await loginMutation.mutateAsync(formState);
-      router.replace('/(app)');
+        router.replace('/(app)/dashboard');
     } catch (error) {
       Alert.alert('Login failed', getErrorMessage(error, 'Please double-check your credentials.'));
     }

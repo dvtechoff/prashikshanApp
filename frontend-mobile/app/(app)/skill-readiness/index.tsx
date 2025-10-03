@@ -1,5 +1,7 @@
 import { ScrollView, StyleSheet, Text, View, Pressable, Alert } from 'react-native';
 
+import { useCurrentUserQuery } from '@/hooks/useCurrentUser';
+
 const modules = [
   {
     title: 'Internship readiness toolkit',
@@ -28,6 +30,24 @@ const modules = [
 ];
 
 export default function SkillReadinessScreen() {
+  const { data: currentUser } = useCurrentUserQuery();
+  const role = currentUser?.role ?? 'STUDENT';
+
+  if (role !== 'STUDENT') {
+    return (
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>Skill readiness</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Modules unavailable</Text>
+          <Text style={styles.cardBody}>
+            Skill readiness resources are designed for students preparing for internships. If you need
+            access for mentoring or programme design, contact the administrator team.
+          </Text>
+        </View>
+      </ScrollView>
+    );
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Skill readiness</Text>

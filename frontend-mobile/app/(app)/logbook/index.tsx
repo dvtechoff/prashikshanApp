@@ -22,6 +22,8 @@ export default function LogbookScreen() {
 
   const role = currentUser?.role ?? 'STUDENT';
   const isFaculty = role === 'FACULTY';
+  const isStudent = role === 'STUDENT';
+  const isIndustry = role === 'INDUSTRY';
 
   const pendingFacultyApprovals = useMemo(() => {
     if (!data) {
@@ -71,17 +73,19 @@ export default function LogbookScreen() {
             ? pendingFacultyApprovals
               ? `${pendingFacultyApprovals} entry${pendingFacultyApprovals > 1 ? 'ies' : ''} awaiting approval.`
               : 'Everything reviewed. Great job!'
+            : isIndustry
+            ? 'Monitor intern submissions and coordinate with faculty for approvals.'
             : 'Capture your weekly internship progress and hours.'}
         </Text>
       </View>
 
-      {!isFaculty && (
+      {isStudent && (
         <Pressable style={styles.primaryButton} onPress={handleCreate}>
           <Text style={styles.primaryButtonText}>New logbook entry</Text>
         </Pressable>
       )}
 
-      {drafts.length > 0 && (
+      {isStudent && drafts.length > 0 && (
         <View style={styles.draftBanner}>
           <Text style={styles.draftTitle}>Offline drafts</Text>
           <Text style={styles.draftBody}>
