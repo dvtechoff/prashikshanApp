@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useCallback, useMemo } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { login, register } from '@/api/auth';
 import type { LoginRequest, RegisterRequest, TokenResponse } from '@/types/api';
 import { useAuthStore, type AuthState } from '@/store/authStore';
+import { useLogbookDraftStore } from '@/store/logbookDraftStore';
 
 export const useAuthStatus = () => {
   const state = useAuthStore((store: AuthState) => ({
@@ -46,4 +47,14 @@ export const useRegisterMutation = () => {
   });
 };
 
-export const useSignOut = () => useAuthStore((store: AuthState) => store.signOut);
+export const useSignOut = () => {
+  const queryClient = useQueryClient();
+  const signOutStore = useAuthStore((store: AuthState) => store.signOut);
+
+  return useCallback(async () => {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    useLogbookDraftStore.getState().reset();
+    signOutStore();
+  }, [queryClient, signOutStore]);
+};

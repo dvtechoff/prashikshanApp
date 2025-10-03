@@ -85,8 +85,8 @@ export default function DashboardScreen() {
     ];
   }, [applications, logbookEntries, notifications, role, internships]);
 
-  const handleSignOut = () => {
-    signOut();
+  const handleSignOut = async () => {
+    await signOut();
     router.replace('/(auth)/login');
   };
 
