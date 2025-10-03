@@ -1,0 +1,35 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: prashiskshan
+      POSTGRES_USER: prashiskhan_Admin
+      POSTGRES_PASSWORD: VermajiAdmin
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@prashikshan.com
+      PGADMIN_DEFAULT_PASSWORD: admin@123
+    ports:
+      - "8080:80"
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://prashiskhan_Admin:VermajiAdmin@db:5432/prashiskshan
+      - SECRET_KEY=VermaJiPrashikshan
+      - S3_ENDPOINT=
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+volumes:
+  pgdata:

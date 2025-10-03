@@ -1,0 +1,27 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ]
+    },
+    "strict": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "lib": [
+      "esnext"
+    ]
+  },
+  "include": [
+    "app",
+    "src",
+    "expo-env.d.ts",
+    ".expo/types/**/*.ts"
+  ]
+}

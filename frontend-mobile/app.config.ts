@@ -1,0 +1,39 @@
+import type { ConfigContext, ExpoConfig } from 'expo/config';
+
+export default ({ config }: ConfigContext): ExpoConfig => ({
+  ...config,
+  name: 'Prashikshan',
+  slug: 'prashikshan',
+  scheme: 'prashikshan',
+  version: '1.0.0',
+  orientation: 'portrait',
+  icon: './assets/icon.png',
+  userInterfaceStyle: 'automatic',
+  splash: {
+    image: './assets/splash.png',
+    resizeMode: 'contain',
+    backgroundColor: '#ffffff'
+  },
+  assetBundlePatterns: ['**/*'],
+  ios: {
+    supportsTablet: true,
+    bundleIdentifier: 'com.prashikshan.app'
+  },
+  android: {
+    package: 'com.prashikshan.app',
+    adaptiveIcon: {
+      foregroundImage: './assets/adaptive-icon.png',
+      backgroundColor: '#ffffff'
+    }
+  },
+  web: {
+    bundler: 'metro'
+  },
+  plugins: ['expo-router'],
+  experiments: {
+    typedRoutes: true
+  },
+  extra: {
+    apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:8000'
+  }
+});
