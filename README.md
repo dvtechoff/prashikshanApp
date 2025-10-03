@@ -10,7 +10,7 @@ Prashikshan is a NEP-aligned internship management platform that connects studen
 - `frontend-web/` — React web client (placeholder, to be implemented).
 - `frontend-mobile/` — React Native + Expo mobile app (placeholder, to be implemented).
 - `infra/` — Environment templates and infrastructure helpers.
-- `docker-compose.yml` — Development stack runner (PostgreSQL + backend + pgAdmin).
+- `docker-compose.yml` — Development stack runner for PostgreSQL and pgAdmin.
 
 ## Getting started
 
@@ -18,9 +18,9 @@ Prashikshan is a NEP-aligned internship management platform that connects studen
 
 - Python 3.11+
 - Node.js 18+ (for web/mobile apps; not yet required in this scaffold)
-- Docker & Docker Compose (for running the full stack)
+- Docker & Docker Compose (for running PostgreSQL locally; optional if you have another Postgres instance)
 
-### Local backend setup (virtual environment)
+### Set up the Python environment
 
 ```powershell
 python -m venv .venv
@@ -28,44 +28,42 @@ python -m venv .venv
 pip install -r backend/requirements.txt
 ```
 
-Run the API with hot reload:
+### Start PostgreSQL with Docker Compose
 
 ```powershell
-uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000 --reload
+docker compose up -d db pgadmin
 ```
 
-The OpenAPI docs will be available at http://localhost:8000/docs.
+This launches PostgreSQL (with a persistent `pgdata` volume) and pgAdmin on http://localhost:8080 while leaving the FastAPI service to run on the host machine.
 
-### Run with Docker Compose
+### Apply database migrations
 
 ```powershell
-docker-compose up --build
+cd backend
+python -m alembic upgrade head
+cd ..
 ```
 
-This command builds the backend image, starts PostgreSQL (with persistent `pgdata` volume), pgAdmin, and the FastAPI service on port `8000`.
-
-### Database migrations
-
-Apply the initial schema to the running database:
+### Run the backend locally
 
 ```powershell
-docker-compose exec backend alembic upgrade head
+python backend/run_backend.py --reload
 ```
+
+The API will be available at http://localhost:8000 and the interactive docs at http://localhost:8000/docs.
 
 ### Run backend tests
 
 ```powershell
-pytest -c backend/pytest.ini backend/app/tests
+pytest backend/app/tests
 ```
-
-(_pytest configuration file will be added in a subsequent PR; for now tests can be invoked with `pytest backend/app/tests` after installing requirements._)
 
 ## Configuration
 
-Copy the example environment file and update secrets as needed:
+Copy the example environment file into the backend directory and tweak secrets as needed:
 
 ```powershell
-Copy-Item infra\.env.example .env
+Copy-Item infra\.env.example backend\.env
 ```
 
 Key variables:

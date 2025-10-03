@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
     APP_NAME: str = "Prashikshan API"
     API_V1_PREFIX: str = "/api/v1"
-    DATABASE_URL: str = "postgresql+asyncpg://prashiskhan_Admin:VermajiAdmin@db:5432/prashiskshan"
+    DATABASE_URL: str = "postgresql+asyncpg://prashiskhan_Admin:VermajiAdmin@localhost:5432/prashiskshan"
     SECRET_KEY: str = "VermaJiPrashikshan"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7

@@ -15,11 +15,23 @@ branch_labels = None
 depends_on = None
 
 
-userrole = sa.Enum("STUDENT", "FACULTY", "INDUSTRY", "ADMIN", name="userrole")
+USERROLE_VALUES = ("STUDENT", "FACULTY", "INDUSTRY", "ADMIN")
+
+userrole = postgresql.ENUM(*USERROLE_VALUES, name="userrole", create_type=False)
 
 
 def upgrade() -> None:
-    userrole.create(op.get_bind(), checkfirst=True)
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'userrole') THEN
+                CREATE TYPE userrole AS ENUM ('STUDENT', 'FACULTY', 'INDUSTRY', 'ADMIN');
+            END IF;
+        END
+        $$;
+        """
+    )
 
     op.create_table(
         "colleges",
@@ -156,10 +168,10 @@ def upgrade() -> None:
 
     op.create_foreign_key(
         "fk_colleges_coordinator",
-        source="colleges",
-        referent="users",
-        local_cols=["coordinator_user_id"],
-        remote_cols=["id"],
+        "colleges",
+        "users",
+        ["coordinator_user_id"],
+        ["id"],
     )
 
 
@@ -177,4 +189,4 @@ def downgrade() -> None:
     op.drop_index("ix_users_email", table_name="users")
     op.drop_table("users")
     op.drop_table("colleges")
-    userrole.drop(op.get_bind(), checkfirst=True)
+    op.execute("DROP TYPE IF EXISTS userrole")

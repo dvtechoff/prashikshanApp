@@ -24,7 +24,6 @@ interface RegisterFormState {
   password: string;
   confirmPassword: string;
   role: UserRole;
-  collegeId: string;
 }
 
 const initialState: RegisterFormState = {
@@ -32,8 +31,7 @@ const initialState: RegisterFormState = {
   email: '',
   password: '',
   confirmPassword: '',
-  role: 'STUDENT',
-  collegeId: ''
+  role: 'STUDENT'
 };
 
 const roleOptions: Array<{ label: string; value: UserRole }> = [
@@ -65,10 +63,6 @@ export default function RegisterScreen() {
       password: formState.password,
       role: formState.role
     };
-    const trimmedCollegeId = formState.collegeId.trim();
-    if (trimmedCollegeId) {
-      payload.college_id = trimmedCollegeId;
-    }
 
     try {
       await registerMutation.mutateAsync(payload);
@@ -160,17 +154,6 @@ export default function RegisterScreen() {
               ))}
             </Picker>
           </View>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>College ID (optional)</Text>
-          <TextInput
-            value={formState.collegeId}
-            onChangeText={(value) => handleChange('collegeId', value)}
-            placeholder="UUID provided by your admin"
-            style={styles.input}
-            autoCapitalize="none"
-          />
         </View>
 
         <Pressable
