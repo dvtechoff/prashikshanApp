@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -25,6 +26,7 @@ export default function RootLayout() {
 
   return (
     <AppProviders>
+      <StatusBar style="dark" translucent backgroundColor="transparent" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(app)" />

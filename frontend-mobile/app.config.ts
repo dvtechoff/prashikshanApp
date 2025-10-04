@@ -22,7 +22,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     softwareKeyboardLayoutMode: 'pan',
     adaptiveIcon: {
       backgroundColor: '#ffffff'
-    }
+    },
+    userInterfaceStyle: 'automatic'
   },
   web: {
     bundler: 'metro'
