@@ -57,7 +57,7 @@ export interface Internship {
 export interface InternshipCreateRequest {
   title: string;
   description?: string | null;
-  skills?: string[];
+  skills?: string[] | null;
   stipend?: number | null;
   location?: string | null;
   remote: boolean;
@@ -127,6 +127,15 @@ export interface LogbookEntryCreateRequest {
   entry_date: string;
   hours: number;
   description: string;
+  attachments?: LogbookAttachment[];
+}
+
+export interface LogbookEntryUpdateRequest {
+  approved?: boolean;
+  faculty_comments?: string;
+  entry_date?: string;
+  hours?: number;
+  description?: string;
   attachments?: LogbookAttachment[];
 }
 

@@ -31,19 +31,32 @@ const ApplicationCard = ({
   appliedAt,
   industryStatus,
   facultyStatus,
-  onPress
+  studentId,
+  isFaculty,
+  onPress,
+  onStudentPress
 }: {
   internshipTitle?: string;
   appliedAt: string;
   industryStatus: string;
   facultyStatus: string;
+  studentId: string;
+  isFaculty: boolean;
   onPress: () => void;
+  onStudentPress?: (studentId: string) => void;
 }) => {
   const industryPalette = statusColor(industryStatus);
   const facultyPalette = statusColor(facultyStatus);
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      <Text style={styles.cardTitle}>{internshipTitle ?? 'Internship application'}</Text>
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle}>{internshipTitle ?? 'Internship application'}</Text>
+        {isFaculty && onStudentPress && (
+          <Pressable onPress={() => onStudentPress(studentId)}>
+            <Text style={styles.studentLink}>Student #{studentId}</Text>
+          </Pressable>
+        )}
+      </View>
       <Text style={styles.cardMeta}>Applied on {new Date(appliedAt).toLocaleDateString()}</Text>
       <View style={styles.badgeRow}>
         <View style={[styles.statusBadge, { backgroundColor: industryPalette.background }]}>
@@ -210,8 +223,13 @@ export default function ApplicationsScreen() {
               appliedAt={item.applied_at}
               industryStatus={item.industry_status}
               facultyStatus={item.faculty_status}
+              studentId={item.student_id}
+              isFaculty={isFaculty}
               onPress={() =>
                 router.push({ pathname: '/(app)/applications/[id]', params: { id: item.id } } as never)
+              }
+              onStudentPress={(studentId) =>
+                router.push({ pathname: '/(app)/students/[id]', params: { id: studentId } } as never)
               }
             />
           )}
@@ -267,10 +285,22 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 1
   },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 8
+  },
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0f172a'
+    color: '#0f172a',
+    flex: 1
+  },
+  studentLink: {
+    fontSize: 13,
+    color: '#2563eb',
+    fontWeight: '600'
   },
   cardMeta: {
     color: '#64748b'

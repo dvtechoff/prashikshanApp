@@ -90,17 +90,41 @@ export default function PostInternshipScreen() {
       return;
     }
 
+    // Parse and validate skills
+    const skillsArray = formState.skills
+      .split(',')
+      .map((skill) => skill.trim())
+      .filter((skill) => skill.length > 0);
+
+    // Validate date format if provided
+    const startDate = formState.startDate.trim();
+    if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+      Alert.alert('Invalid date format', 'Start date must be in YYYY-MM-DD format (e.g., 2024-06-15)');
+      return;
+    }
+
+    // Validate numeric fields
+    if (formState.stipend && isNaN(Number(formState.stipend))) {
+      Alert.alert('Invalid stipend', 'Stipend must be a valid number');
+      return;
+    }
+    if (formState.durationWeeks && isNaN(Number(formState.durationWeeks))) {
+      Alert.alert('Invalid duration', 'Duration must be a valid number');
+      return;
+    }
+    if (formState.credits && isNaN(Number(formState.credits))) {
+      Alert.alert('Invalid credits', 'Credits must be a valid number');
+      return;
+    }
+
     const payload: InternshipCreateRequest = {
       title: formState.title.trim(),
-      description: formState.description.trim(),
-      skills: formState.skills
-        .split(',')
-        .map((skill) => skill.trim())
-        .filter((skill) => skill.length > 0),
+      description: formState.description.trim() || null,
+      skills: skillsArray.length > 0 ? skillsArray : null,
       stipend: formState.stipend ? Number(formState.stipend) : null,
       location: formState.location.trim() || null,
       remote: formState.remote,
-      start_date: formState.startDate.trim() || null,
+      start_date: startDate || null,
       duration_weeks: formState.durationWeeks ? Number(formState.durationWeeks) : null,
       credits: formState.credits ? Number(formState.credits) : null,
       status: formState.status
@@ -112,6 +136,7 @@ export default function PostInternshipScreen() {
       } else {
         await createMutation.mutateAsync(payload);
       }
+      Alert.alert('Success', internshipId ? 'Internship updated successfully!' : 'Internship posted successfully!');
       router.back();
     } catch (error) {
       Alert.alert('Could not save internship', getErrorMessage(error));

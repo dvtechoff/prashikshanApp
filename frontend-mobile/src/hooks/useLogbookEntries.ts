@@ -5,9 +5,10 @@ import {
   createLogbookEntry,
   getLogbookEntry,
   listLogbookEntries,
+  updateLogbookEntry,
   type LogbookQueryParams
 } from '@/api/logbook';
-import type { LogbookEntry, LogbookEntryCreateRequest } from '@/types/api';
+import type { LogbookEntry, LogbookEntryCreateRequest, LogbookEntryUpdateRequest } from '@/types/api';
 import { useLogbookDraftStore } from '@/store/logbookDraftStore';
 
 const listKey = (params?: LogbookQueryParams) => ['logbookEntries', params ?? {}];
@@ -113,4 +114,18 @@ export const useLogbookDraftActions = () => {
     syncDraft,
     removeDraft
   };
+};
+
+export const useUpdateLogbookEntry = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: LogbookEntryUpdateRequest }) =>
+      updateLogbookEntry(id, payload),
+    onSuccess: (entry) => {
+      queryClient.invalidateQueries({ queryKey: listKey() });
+      queryClient.invalidateQueries({ queryKey: listKey({ application_id: entry.application_id }) });
+      queryClient.setQueryData(detailKey(entry.id), entry);
+    }
+  });
 };

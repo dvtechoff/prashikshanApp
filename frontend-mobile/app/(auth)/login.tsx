@@ -61,7 +61,14 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Password</Text>
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>Password</Text>
+          <Link href="/(auth)/forgot-password" asChild>
+            <Pressable>
+              <Text style={styles.forgotLink}>Forgot Password?</Text>
+            </Pressable>
+          </Link>
+        </View>
         <TextInput
           value={formState.password}
           onChangeText={(value: string) => handleChange('password', value)}
@@ -123,10 +130,20 @@ const styles = StyleSheet.create({
   inputGroup: {
     marginBottom: 20
   },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6
+  },
   label: {
     fontSize: 14,
-    color: '#334155',
-    marginBottom: 6
+    color: '#334155'
+  },
+  forgotLink: {
+    fontSize: 14,
+    color: '#2563eb',
+    fontWeight: '600'
   },
   input: {
     borderWidth: 1,

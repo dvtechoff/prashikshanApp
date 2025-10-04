@@ -11,17 +11,56 @@ import {
   View
 } from 'react-native';
 
-import { useLogbookEntryDetail } from '@/hooks/useLogbookEntries';
+import { useLogbookEntryDetail, useUpdateLogbookEntry } from '@/hooks/useLogbookEntries';
 import { useCurrentUserQuery } from '@/hooks/useCurrentUser';
 
 export default function LogbookEntryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data, isLoading, error, refetch } = useLogbookEntryDetail(id);
   const { data: currentUser } = useCurrentUserQuery();
+  const updateMutation = useUpdateLogbookEntry();
   const [comment, setComment] = useState('');
 
   const role = currentUser?.role ?? 'STUDENT';
   const canReview = role === 'FACULTY';
+
+  const handleApprove = async () => {
+    if (!id) return;
+    try {
+      await updateMutation.mutateAsync({
+        id,
+        payload: {
+          approved: true,
+          faculty_comments: comment.trim() || undefined
+        }
+      });
+      Alert.alert('Approved', 'The logbook entry has been approved successfully.');
+      setComment('');
+    } catch (err) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to approve entry.');
+    }
+  };
+
+  const handleReject = async () => {
+    if (!id) return;
+    if (!comment.trim()) {
+      Alert.alert('Comment required', 'Please provide feedback before rejecting.');
+      return;
+    }
+    try {
+      await updateMutation.mutateAsync({
+        id,
+        payload: {
+          approved: false,
+          faculty_comments: comment.trim()
+        }
+      });
+      Alert.alert('Rejected', 'The logbook entry has been rejected with your feedback.');
+      setComment('');
+    } catch (err) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to reject entry.');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -98,11 +137,27 @@ export default function LogbookEntryDetailScreen() {
             numberOfLines={4}
           />
           <View style={styles.actionRow}>
-            <Pressable style={[styles.secondaryButton, styles.rejectButton]} onPress={() => Alert.alert('Pending API', 'Rejection flow will connect to backend approval API soon.') }>
-              <Text style={styles.rejectText}>Reject</Text>
+            <Pressable 
+              style={[styles.secondaryButton, styles.rejectButton]} 
+              onPress={handleReject}
+              disabled={updateMutation.isPending}
+            >
+              {updateMutation.isPending ? (
+                <ActivityIndicator size="small" color="#dc2626" />
+              ) : (
+                <Text style={styles.rejectText}>Reject</Text>
+              )}
             </Pressable>
-            <Pressable style={[styles.primaryButton, styles.approveButton]} onPress={() => Alert.alert('Pending API', 'Approval flow will connect to backend approval API soon.') }>
-              <Text style={styles.primaryButtonText}>Approve</Text>
+            <Pressable 
+              style={[styles.primaryButton, styles.approveButton]} 
+              onPress={handleApprove}
+              disabled={updateMutation.isPending}
+            >
+              {updateMutation.isPending ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.primaryButtonText}>Approve</Text>
+              )}
             </Pressable>
           </View>
         </View>

@@ -139,6 +139,12 @@ export default function AppLayout() {
           }}
         />
       ))}
+      <Tabs.Screen
+        name="students/[id]"
+        options={{
+          href: null
+        }}
+      />
     </Tabs>
   );
 }
