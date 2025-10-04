@@ -42,6 +42,13 @@ async def login(login_in: LoginRequest, session: AsyncSession = Depends(get_db))
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
         )
+    
+    # Check if account is activated
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account pending activation. Please contact administrator.",
+        )
 
     access_token = create_access_token(user.id)
     refresh_token = create_refresh_token(user.id)

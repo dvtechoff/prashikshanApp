@@ -54,6 +54,7 @@ class UserUpdate(BaseModel):
     phone: Optional[str] = Field(None, max_length=20)
     university: Optional[str] = Field(None, max_length=255)
     college_id: Optional[str] = None
+    is_active: Optional[bool] = None
     
     # Role-specific profile updates
     profile: Optional[ProfileUpdate] = None

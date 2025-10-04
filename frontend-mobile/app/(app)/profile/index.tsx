@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { router } from 'expo-router';
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -43,9 +44,26 @@ export default function ProfileScreen() {
     };
   }, [data?.role, applications, logbookEntries, notifications]);
 
-  const handleSignOut = async () => {
-    await signOut();
-    router.replace('/(auth)/login');
+  const handleSignOut = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            router.replace('/(auth)/login');
+          }
+        }
+      ],
+      { cancelable: true }
+    );
   };
 
   if (isLoading) {
@@ -165,16 +183,6 @@ export default function ProfileScreen() {
 
           <Pressable 
             style={styles.actionButton}
-            onPress={() => router.push('/(app)/dashboard')}
-          >
-            <View style={[styles.actionIconContainer, { backgroundColor: '#dbeafe' }]}>
-              <Ionicons name="speedometer-outline" size={24} color="#2563eb" />
-            </View>
-            <Text style={styles.actionLabel}>Dashboard</Text>
-          </Pressable>
-
-          <Pressable 
-            style={styles.actionButton}
             onPress={() => router.push('/(app)/applications')}
           >
             <View style={[styles.actionIconContainer, { backgroundColor: '#fef3c7' }]}>
@@ -182,40 +190,6 @@ export default function ProfileScreen() {
             </View>
             <Text style={styles.actionLabel}>Applications</Text>
           </Pressable>
-
-          <Pressable 
-            style={styles.actionButton}
-            onPress={() => router.push('/(app)/notifications')}
-          >
-            <View style={[styles.actionIconContainer, { backgroundColor: '#fee2e2' }]}>
-              <Ionicons name="notifications-outline" size={24} color="#dc2626" />
-            </View>
-            <Text style={styles.actionLabel}>Notifications</Text>
-          </Pressable>
-
-          {(data.role === 'STUDENT' || data.role === 'INDUSTRY') && (
-            <Pressable 
-              style={styles.actionButton}
-              onPress={() => router.push('/(app)/internships')}
-            >
-              <View style={[styles.actionIconContainer, { backgroundColor: '#dcfce7' }]}>
-                <Ionicons name="briefcase-outline" size={24} color="#059669" />
-              </View>
-              <Text style={styles.actionLabel}>Internships</Text>
-            </Pressable>
-          )}
-
-          {(data.role === 'STUDENT' || data.role === 'FACULTY') && (
-            <Pressable 
-              style={styles.actionButton}
-              onPress={() => router.push('/(app)/logbook')}
-            >
-              <View style={[styles.actionIconContainer, { backgroundColor: '#fef3c7' }]}>
-                <Ionicons name="book-outline" size={24} color="#d97706" />
-              </View>
-              <Text style={styles.actionLabel}>Logbook</Text>
-            </Pressable>
-          )}
 
           {(data.role === 'STUDENT' || data.role === 'FACULTY' || data.role === 'INDUSTRY' || data.role === 'ADMIN') && (
             <Pressable 

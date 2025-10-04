@@ -23,6 +23,7 @@ const iconNameMap: Record<
   analytics: { focused: 'analytics', unfocused: 'analytics-outline' },
   notifications: { focused: 'notifications', unfocused: 'notifications-outline' },
   profile: { focused: 'person-circle', unfocused: 'person-circle-outline' },
+  settings: { focused: 'settings', unfocused: 'settings-outline' },
   'skill-readiness': { focused: 'school', unfocused: 'school-outline' },
   credits: { focused: 'ribbon', unfocused: 'ribbon-outline' }
 };
@@ -52,10 +53,10 @@ export default function AppLayout() {
   );
 
   const tabsByRole: Record<string, string[]> = {
-    STUDENT: ['dashboard', 'internships', 'logbook', 'notifications', 'profile'],
-    FACULTY: ['dashboard', 'logbook', 'notifications', 'profile'],
-    INDUSTRY: ['dashboard', 'internships', 'notifications', 'profile'],
-    ADMIN: ['dashboard', 'notifications', 'profile']
+    STUDENT: ['dashboard', 'internships', 'logbook', 'notifications', 'settings'],
+    FACULTY: ['dashboard', 'logbook', 'notifications', 'settings'],
+    INDUSTRY: ['dashboard', 'internships', 'notifications', 'settings'],
+    ADMIN: ['dashboard', 'notifications', 'settings']
   };
 
   const tabOptions: Record<
@@ -71,6 +72,7 @@ export default function AppLayout() {
     analytics: { title: 'Analytics' },
     notifications: { title: 'Alerts' },
     profile: { title: 'Profile' },
+    settings: { title: 'Settings' },
     credits: { title: 'Credits' },
     'skill-readiness': { title: 'Readiness' }
   };

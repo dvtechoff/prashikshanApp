@@ -36,6 +36,11 @@ async def get_user_by_id(session: AsyncSession, user_id: str) -> Optional[models
 
 
 async def create_user(session: AsyncSession, user_in: UserCreate) -> models.User:
+    # FACULTY and INDUSTRY users need admin approval before they can login
+    is_active = True
+    if user_in.role in [models.UserRole.FACULTY, models.UserRole.INDUSTRY]:
+        is_active = False
+    
     user = models.User(
         name=user_in.name,
         email=user_in.email.lower(),
@@ -44,6 +49,7 @@ async def create_user(session: AsyncSession, user_in: UserCreate) -> models.User
         phone=user_in.phone,
         university=user_in.university,
         college_id=user_in.college_id,
+        is_active=is_active,
     )
     session.add(user)
     try:
@@ -690,3 +696,126 @@ async def update_notification(
     await session.commit()
     await session.refresh(notification)
     return notification
+
+
+# Admin user management functions
+async def list_users(
+    session: AsyncSession,
+    role: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    skip: int = 0,
+    limit: int = 100,
+) -> List[models.User]:
+    """List all users with optional filters"""
+    stmt = select(models.User).options(
+        selectinload(models.User.profile),
+        selectinload(models.User.industry_profile)
+    )
+    
+    if role:
+        stmt = stmt.where(models.User.role == role)
+    if is_active is not None:
+        stmt = stmt.where(models.User.is_active == is_active)
+    
+    stmt = stmt.offset(skip).limit(limit).order_by(models.User.created_at.desc())
+    
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_user(session: AsyncSession, user_id: str) -> Optional[models.User]:
+    """Get user by ID with all relations"""
+    return await get_user_by_id(session, user_id)
+
+
+async def update_user(session: AsyncSession, user_id: str, user_update) -> models.User:
+    """Update user fields"""
+    user = await get_user_by_id(session, user_id)
+    if not user:
+        raise ValueError("User not found")
+    
+    update_data = user_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        if hasattr(user, field):
+            setattr(user, field, value)
+    
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+
+async def delete_user(session: AsyncSession, user_id: str) -> None:
+    """Delete user permanently along with all related records"""
+    user = await get_user_by_id(session, user_id)
+    if not user:
+        raise ValueError("User not found")
+    
+    # Delete related records first to avoid foreign key constraint issues
+    
+    # Remove coordinator relationship from colleges
+    result = await session.execute(
+        select(models.College).where(models.College.coordinator_user_id == user_id)
+    )
+    colleges_as_coordinator = result.scalars().all()
+    for college in colleges_as_coordinator:
+        college.coordinator_user_id = None
+    
+    # Delete profile if exists
+    if user.profile:
+        await session.delete(user.profile)
+    
+    # Delete industry profile if exists
+    if user.industry_profile:
+        await session.delete(user.industry_profile)
+    
+    # Delete applications
+    result = await session.execute(
+        select(models.Application).where(models.Application.student_id == user_id)
+    )
+    applications = result.scalars().all()
+    for application in applications:
+        await session.delete(application)
+    
+    # Delete logbook entries
+    result = await session.execute(
+        select(models.LogbookEntry).where(models.LogbookEntry.student_id == user_id)
+    )
+    logbook_entries = result.scalars().all()
+    for entry in logbook_entries:
+        await session.delete(entry)
+    
+    # Delete credits
+    result = await session.execute(
+        select(models.Credit).where(models.Credit.student_id == user_id)
+    )
+    credits = result.scalars().all()
+    for credit in credits:
+        await session.delete(credit)
+    
+    # Delete notifications (as recipient)
+    result = await session.execute(
+        select(models.Notification).where(models.Notification.user_id == user_id)
+    )
+    notifications = result.scalars().all()
+    for notification in notifications:
+        await session.delete(notification)
+    
+    # Delete internships posted by this user (if industry/faculty user)
+    result = await session.execute(
+        select(models.Internship).where(models.Internship.posted_by == user_id)
+    )
+    internships = result.scalars().all()
+    for internship in internships:
+        await session.delete(internship)
+    
+    # Delete audit logs
+    result = await session.execute(
+        select(models.AuditLog).where(models.AuditLog.user_id == user_id)
+    )
+    audit_logs = result.scalars().all()
+    for log in audit_logs:
+        await session.delete(log)
+    
+    # Finally delete the user
+    await session.delete(user)
+    await session.commit()

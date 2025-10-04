@@ -25,6 +25,14 @@ class InternshipInfo(BaseModel):
     
     id: str
     title: str
+    description: Optional[str] = None
+    location: Optional[str] = None
+    remote: bool = False
+    stipend: Optional[int] = None
+    duration_weeks: Optional[int] = None
+    credits: Optional[int] = None
+    start_date: Optional[datetime] = None
+    status: str = "OPEN"
 
 
 class ApplicationBase(BaseModel):

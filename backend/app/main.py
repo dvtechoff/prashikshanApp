@@ -11,6 +11,7 @@ from app.api.v1 import (
     credits,
     reports,
     notifications,
+    admin,
 )
 from app.core.config import settings
 
@@ -35,6 +36,7 @@ def create_application() -> FastAPI:
     app.include_router(credits.router, prefix=settings.API_V1_PREFIX)
     app.include_router(reports.router, prefix=settings.API_V1_PREFIX)
     app.include_router(notifications.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(admin.router, prefix=settings.API_V1_PREFIX, tags=["admin"])
 
     @app.get("/health", tags=["health"])
     async def health_check():
