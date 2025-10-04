@@ -30,6 +30,8 @@ async def create_user(session: AsyncSession, user_in: UserCreate) -> models.User
         email=user_in.email.lower(),
         role=user_in.role,
         password_hash=get_password_hash(user_in.password),
+        phone=user_in.phone,
+        university=user_in.university,
         college_id=user_in.college_id,
     )
     session.add(user)
@@ -39,6 +41,49 @@ async def create_user(session: AsyncSession, user_in: UserCreate) -> models.User
         await session.rollback()
         raise
     await session.refresh(user)
+    
+    # Create role-specific profile
+    if user_in.role == models.UserRole.STUDENT and user_in.student_profile:
+        profile = models.Profile(
+            user_id=user.id,
+            college=user_in.student_profile.college,
+            enrollment_no=user_in.student_profile.enrollment_no,
+            course=user_in.student_profile.course,
+            year=user_in.student_profile.year,
+            skills={"skills": user_in.student_profile.skills} if user_in.student_profile.skills else None,
+        )
+        session.add(profile)
+    
+    elif user_in.role == models.UserRole.FACULTY and user_in.faculty_profile:
+        profile = models.Profile(
+            user_id=user.id,
+            college=user_in.faculty_profile.college,
+            designation=user_in.faculty_profile.designation,
+            department=user_in.faculty_profile.department,
+            faculty_id=user_in.faculty_profile.faculty_id,
+            verified=False,  # Faculty requires admin verification
+        )
+        session.add(profile)
+    
+    elif user_in.role == models.UserRole.INDUSTRY and user_in.industry_profile:
+        industry_profile = models.IndustryProfile(
+            user_id=user.id,
+            company_name=user_in.industry_profile.company_name,
+            company_website=user_in.industry_profile.company_website,
+            contact_person_name=user_in.industry_profile.contact_person_name,
+            contact_number=user_in.industry_profile.contact_number,
+            designation=user_in.industry_profile.designation,
+            company_address=user_in.industry_profile.company_address,
+            verified=False,  # Industry requires admin verification
+        )
+        session.add(industry_profile)
+    
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise
+    
     return user
 
 

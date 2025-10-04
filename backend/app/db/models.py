@@ -47,7 +47,11 @@ class User(Base):
     email: Mapped[str] = mapped_column(sa.String(255), nullable=False, unique=True, index=True)
     password_hash: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
     role: Mapped[UserRole] = mapped_column(sa.Enum(UserRole, name="userrole"), nullable=False)
+    phone: Mapped[Optional[str]] = mapped_column(sa.String(20), nullable=True)
+    university: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
     college_id: Mapped[Optional[str]] = mapped_column(GUID, sa.ForeignKey("colleges.id"), nullable=True)
+    email_verified: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
+    is_active: Mapped[bool] = mapped_column(sa.Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True),
         default=datetime.utcnow,
@@ -75,9 +79,13 @@ class Profile(Base):
     __tablename__ = "profiles"
 
     user_id: Mapped[str] = mapped_column(GUID, sa.ForeignKey("users.id"), primary_key=True)
+    college: Mapped[Optional[str]] = mapped_column(sa.String(255), nullable=True)
     enrollment_no: Mapped[Optional[str]] = mapped_column(sa.String(100))
     course: Mapped[Optional[str]] = mapped_column(sa.String(255))
     year: Mapped[Optional[str]] = mapped_column(sa.String(50))
+    designation: Mapped[Optional[str]] = mapped_column(sa.String(255))
+    department: Mapped[Optional[str]] = mapped_column(sa.String(255))
+    faculty_id: Mapped[Optional[str]] = mapped_column(sa.String(100))
     skills: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
     resume_url: Mapped[Optional[str]] = mapped_column(sa.String(512), nullable=True)
     verified: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
@@ -90,8 +98,12 @@ class IndustryProfile(Base):
 
     user_id: Mapped[str] = mapped_column(GUID, sa.ForeignKey("users.id"), primary_key=True)
     company_name: Mapped[str] = mapped_column(sa.String(255))
-    website: Mapped[Optional[str]] = mapped_column(sa.String(255))
-    contact: Mapped[Optional[str]] = mapped_column(sa.String(255))
+    company_website: Mapped[Optional[str]] = mapped_column(sa.String(255))
+    contact_person_name: Mapped[str] = mapped_column(sa.String(255))
+    contact_number: Mapped[str] = mapped_column(sa.String(20))
+    designation: Mapped[Optional[str]] = mapped_column(sa.String(255))
+    company_address: Mapped[Optional[str]] = mapped_column(sa.String(512))
+    verified: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False)
 
     user: Mapped[User] = relationship("User", back_populates="industry_profile")
 

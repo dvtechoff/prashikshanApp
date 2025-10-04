@@ -3,7 +3,10 @@ import { Link, router } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -43,78 +46,96 @@ export default function LoginScreen() {
   const disableSubmit = !formState.email || !formState.password || loginMutation.isPending;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome back</Text>
-      <Text style={styles.subtitle}>Sign in to continue learning.</Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          autoCapitalize="none"
-          value={formState.email}
-          onChangeText={(value: string) => handleChange('email', value)}
-          keyboardType="email-address"
-          placeholder="you@example.edu"
-          style={styles.input}
-          textContentType="emailAddress"
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <View style={styles.labelRow}>
-          <Text style={styles.label}>Password</Text>
-          <Link href="/(auth)/forgot-password" asChild>
-            <Pressable>
-              <Text style={styles.forgotLink}>Forgot Password?</Text>
-            </Pressable>
-          </Link>
-        </View>
-        <TextInput
-          value={formState.password}
-          onChangeText={(value: string) => handleChange('password', value)}
-          placeholder="••••••••"
-          style={styles.input}
-          secureTextEntry
-          textContentType="password"
-        />
-      </View>
-
-      <Pressable
-        style={[styles.button, disableSubmit && styles.buttonDisabled]}
-        onPress={handleSubmit}
-        disabled={disableSubmit}
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {loginMutation.isPending ? (
-          <ActivityIndicator color="#ffffff" />
-        ) : (
-          <Text style={styles.buttonText}>Sign in</Text>
-        )}
-      </Pressable>
+        <Text style={styles.title}>Welcome back</Text>
+        <Text style={styles.subtitle}>Sign in to continue learning.</Text>
 
-      {loginMutation.isError && (
-        <Text style={styles.errorText}>
-          {getErrorMessage(
-            loginMutation.failureReason,
-            'Unable to sign in right now. Please try again.'
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            autoCapitalize="none"
+            value={formState.email}
+            onChangeText={(value: string) => handleChange('email', value)}
+            keyboardType="email-address"
+            placeholder="you@example.edu"
+            placeholderTextColor="#94a3b8"
+            style={styles.input}
+            textContentType="emailAddress"
+            autoComplete="email"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Password</Text>
+            <Link href="/(auth)/forgot-password" asChild>
+              <Pressable>
+                <Text style={styles.forgotLink}>Forgot Password?</Text>
+              </Pressable>
+            </Link>
+          </View>
+          <TextInput
+            value={formState.password}
+            onChangeText={(value: string) => handleChange('password', value)}
+            placeholder="••••••••"
+            placeholderTextColor="#94a3b8"
+            style={styles.input}
+            secureTextEntry
+            textContentType="password"
+            autoComplete="password"
+          />
+        </View>
+
+        <Pressable
+          style={[styles.button, disableSubmit && styles.buttonDisabled]}
+          onPress={handleSubmit}
+          disabled={disableSubmit}
+        >
+          {loginMutation.isPending ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.buttonText}>Sign in</Text>
           )}
-        </Text>
-      )}
-
-  <Link href="../register" asChild>
-        <Pressable style={styles.secondaryAction}>
-          <Text style={styles.secondaryText}>Don&apos;t have an account? Create one</Text>
         </Pressable>
-      </Link>
-    </View>
+
+        {loginMutation.isError && (
+          <Text style={styles.errorText}>
+            {getErrorMessage(
+              loginMutation.failureReason,
+              'Unable to sign in right now. Please try again.'
+            )}
+          </Text>
+        )}
+
+        <Link href="../register" asChild>
+          <Pressable style={styles.secondaryAction}>
+            <Text style={styles.secondaryText}>Don&apos;t have an account? Create one</Text>
+          </Pressable>
+        </Link>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#ffffff'
+  },
+  scrollContent: {
+    flexGrow: 1,
     padding: 24,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    minHeight: '100%'
   },
   title: {
     fontSize: 32,

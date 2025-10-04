@@ -70,7 +70,7 @@ Key variables:
 
 - `DATABASE_URL` — asynchronous SQLAlchemy DSN.
 - `SECRET_KEY` — JWT signing key (ensure a long, random value in production).
-- `ACCESS_TOKEN_EXPIRE_MINUTES` / `REFRESH_TOKEN_EXPIRE_DAYS` — token lifetimes.
+- `ACCESS_TOKEN_EXPIRE_MINUTES` / `REFRESH_TOKEN_EXPIRE_DAYS` — token lifetimes (default: 30 days / 1 year - users stay logged in until explicit logout).
 - `SENTRY_DSN`, `S3_*`, `FCM_SERVER_KEY` — integration hooks (optional at this stage).
 
 ## Initial API surface

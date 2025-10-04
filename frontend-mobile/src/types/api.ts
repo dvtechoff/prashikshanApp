@@ -16,18 +16,102 @@ export interface TokenResponse {
 
 export type UserRole = 'STUDENT' | 'FACULTY' | 'INDUSTRY' | 'ADMIN';
 
+export interface StudentProfileData {
+  phone?: string;
+  university?: string;
+  college?: string;
+  enrollment_no?: string;
+  course?: string;
+  year?: string;
+  skills?: string[];
+}
+
+export interface FacultyProfileData {
+  phone: string;
+  university?: string;
+  college?: string;
+  designation?: string;
+  department?: string;
+  faculty_id?: string;
+}
+
+export interface IndustryProfileData {
+  company_name: string;
+  company_website?: string;
+  contact_person_name: string;
+  contact_number: string;
+  designation?: string;
+  company_address?: string;
+}
+
+export interface ProfileResponse {
+  user_id: string;
+  college?: string | null;
+  enrollment_no?: string | null;
+  course?: string | null;
+  year?: string | null;
+  designation?: string | null;
+  department?: string | null;
+  faculty_id?: string | null;
+  skills?: { skills?: string[] } | null;
+  resume_url?: string | null;
+  verified: boolean;
+}
+
+export interface IndustryProfileResponse {
+  user_id: string;
+  company_name: string;
+  company_website?: string | null;
+  contact_person_name: string;
+  contact_number: string;
+  designation?: string | null;
+  company_address?: string | null;
+  verified: boolean;
+}
+
+export interface ProfileUpdateRequest {
+  college?: string | null;
+  enrollment_no?: string | null;
+  course?: string | null;
+  year?: string | null;
+  designation?: string | null;
+  department?: string | null;
+  faculty_id?: string | null;
+  skills?: string[] | null;
+  resume_url?: string | null;
+}
+
+export interface IndustryProfileUpdateRequest {
+  company_name?: string | null;
+  company_website?: string | null;
+  contact_person_name?: string | null;
+  contact_number?: string | null;
+  designation?: string | null;
+  company_address?: string | null;
+}
+
 export interface UserResponse {
   id: string;
   name: string;
   email: string;
   role: UserRole;
+  phone?: string | null;
+  university?: string | null;
   college_id: string | null;
+  email_verified: boolean;
+  is_active: boolean;
   created_at: string;
+  profile?: ProfileResponse | null;
+  industry_profile?: IndustryProfileResponse | null;
 }
 
 export interface UserUpdateRequest {
   name?: string | null;
+  phone?: string | null;
+  university?: string | null;
   college_id?: string | null;
+  profile?: ProfileUpdateRequest | null;
+  industry_profile?: IndustryProfileUpdateRequest | null;
 }
 
 export interface RegisterRequest {
@@ -36,6 +120,11 @@ export interface RegisterRequest {
   password: string;
   role: UserRole;
   college_id?: string | null;
+  phone?: string;
+  university?: string;
+  student_profile?: StudentProfileData;
+  faculty_profile?: FacultyProfileData;
+  industry_profile?: IndustryProfileData;
 }
 
 export interface Internship {

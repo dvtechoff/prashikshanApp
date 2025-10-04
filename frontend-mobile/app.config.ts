@@ -18,7 +18,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: 'com.prashikshan.app'
   },
   android: {
-    package: 'com.prashikshan.app'
+    package: 'com.prashikshan.app',
+    softwareKeyboardLayoutMode: 'pan',
+    adaptiveIcon: {
+      backgroundColor: '#ffffff'
+    }
   },
   web: {
     bundler: 'metro'

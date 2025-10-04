@@ -18,21 +18,45 @@ import {
 interface ExtendedProfileState {
   name: string;
   email: string;
-  collegeId: string;
-  skills: string;
-  resume: string;
+  phone: string;
+  university: string;
+  // Student/Faculty profile fields
+  college: string;
+  enrollmentNo: string;
   course: string;
   year: string;
+  designation: string;
+  department: string;
+  facultyId: string;
+  skills: string;
+  resumeUrl: string;
+  // Industry profile fields
+  companyName: string;
+  companyWebsite: string;
+  contactPersonName: string;
+  contactNumber: string;
+  companyAddress: string;
 }
 
 const initialState: ExtendedProfileState = {
   name: '',
   email: '',
-  collegeId: '',
-  skills: '',
-  resume: '',
+  phone: '',
+  university: '',
+  college: '',
+  enrollmentNo: '',
   course: '',
-  year: ''
+  year: '',
+  designation: '',
+  department: '',
+  facultyId: '',
+  skills: '',
+  resumeUrl: '',
+  companyName: '',
+  companyWebsite: '',
+  contactPersonName: '',
+  contactNumber: '',
+  companyAddress: ''
 };
 
 export default function ProfileScreen() {
@@ -44,29 +68,63 @@ export default function ProfileScreen() {
     if (!data) {
       return;
     }
-    setFormState((prev) => ({
-      ...prev,
+    
+    // Extract skills array from profile
+    const skillsArray = data.profile?.skills?.skills || [];
+    const skillsString = Array.isArray(skillsArray) ? skillsArray.join(', ') : '';
+    
+    setFormState({
       name: data.name,
       email: data.email,
-      collegeId: data.college_id ?? '',
-      skills: prev.skills,
-      resume: prev.resume,
-      course: prev.course,
-      year: prev.year
-    }));
+      phone: data.phone || '',
+      university: data.university || '',
+      // Student/Faculty profile
+      college: data.profile?.college || '',
+      enrollmentNo: data.profile?.enrollment_no || '',
+      course: data.profile?.course || '',
+      year: data.profile?.year || '',
+      designation: data.profile?.designation || '',
+      department: data.profile?.department || '',
+      facultyId: data.profile?.faculty_id || '',
+      skills: skillsString,
+      resumeUrl: data.profile?.resume_url || '',
+      // Industry profile
+      companyName: data.industry_profile?.company_name || '',
+      companyWebsite: data.industry_profile?.company_website || '',
+      contactPersonName: data.industry_profile?.contact_person_name || '',
+      contactNumber: data.industry_profile?.contact_number || '',
+      companyAddress: data.industry_profile?.company_address || ''
+    });
   }, [data]);
 
   const hasChanges = useMemo(() => {
     if (!data) {
       return false;
     }
+    
+    const skillsArray = data.profile?.skills?.skills || [];
+    const originalSkills = Array.isArray(skillsArray) ? skillsArray.join(', ') : '';
+    
     return (
       formState.name !== data.name ||
-      formState.collegeId !== (data.college_id ?? '') ||
-      formState.skills.trim().length > 0 ||
-      formState.resume.trim().length > 0 ||
-      formState.course.trim().length > 0 ||
-      formState.year.trim().length > 0
+      formState.phone !== (data.phone || '') ||
+      formState.university !== (data.university || '') ||
+      // Profile changes
+      formState.college !== (data.profile?.college || '') ||
+      formState.enrollmentNo !== (data.profile?.enrollment_no || '') ||
+      formState.course !== (data.profile?.course || '') ||
+      formState.year !== (data.profile?.year || '') ||
+      formState.designation !== (data.profile?.designation || '') ||
+      formState.department !== (data.profile?.department || '') ||
+      formState.facultyId !== (data.profile?.faculty_id || '') ||
+      formState.skills !== originalSkills ||
+      formState.resumeUrl !== (data.profile?.resume_url || '') ||
+      // Industry profile changes
+      formState.companyName !== (data.industry_profile?.company_name || '') ||
+      formState.companyWebsite !== (data.industry_profile?.company_website || '') ||
+      formState.contactPersonName !== (data.industry_profile?.contact_person_name || '') ||
+      formState.contactNumber !== (data.industry_profile?.contact_number || '') ||
+      formState.companyAddress !== (data.industry_profile?.company_address || '')
     );
   }, [data, formState]);
 
@@ -79,11 +137,46 @@ export default function ProfileScreen() {
       return;
     }
     try {
-      await updateMutation.mutateAsync({
-        name: formState.name.trim(),
-        college_id: formState.collegeId.trim() || null
-      });
-      Alert.alert('Profile updated', 'Your information has been refreshed. Additional fields will sync soon.');
+      const updatePayload: any = {
+        name: formState.name.trim() || undefined,
+        phone: formState.phone.trim() || undefined,
+        university: formState.university.trim() || undefined
+      };
+      
+      // Add profile data for Student/Faculty
+      if (data.role === 'STUDENT' || data.role === 'FACULTY') {
+        const skillsArray = formState.skills
+          .split(',')
+          .map(s => s.trim())
+          .filter(s => s.length > 0);
+          
+        updatePayload.profile = {
+          college: formState.college.trim() || undefined,
+          enrollment_no: formState.enrollmentNo.trim() || undefined,
+          course: formState.course.trim() || undefined,
+          year: formState.year.trim() || undefined,
+          designation: formState.designation.trim() || undefined,
+          department: formState.department.trim() || undefined,
+          faculty_id: formState.facultyId.trim() || undefined,
+          skills: skillsArray.length > 0 ? skillsArray : undefined,
+          resume_url: formState.resumeUrl.trim() || undefined
+        };
+      }
+      
+      // Add industry profile data
+      if (data.role === 'INDUSTRY') {
+        updatePayload.industry_profile = {
+          company_name: formState.companyName.trim() || undefined,
+          company_website: formState.companyWebsite.trim() || undefined,
+          contact_person_name: formState.contactPersonName.trim() || undefined,
+          contact_number: formState.contactNumber.trim() || undefined,
+          designation: formState.designation.trim() || undefined,
+          company_address: formState.companyAddress.trim() || undefined
+        };
+      }
+      
+      await updateMutation.mutateAsync(updatePayload);
+      Alert.alert('Profile updated', 'Your information has been saved successfully.');
     } catch (error) {
       Alert.alert('Update failed', error instanceof Error ? error.message : 'Please try again later.');
     }
@@ -112,8 +205,11 @@ export default function ProfileScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Personal information</Text>
-      <Text style={styles.subtitle}>Update your contact details and academic profile.</Text>
+      <Text style={styles.subtitle}>
+        {data.role === 'INDUSTRY' ? 'Update your company details' : 'Update your contact details and profile'}
+      </Text>
 
+      {/* Basic Information - All roles */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.fieldGroup}>
@@ -122,74 +218,238 @@ export default function ProfileScreen() {
             value={formState.name}
             onChangeText={(value) => handleChange('name', value)}
             placeholder="Your name"
+            placeholderTextColor="#94a3b8"
             style={styles.input}
           />
         </View>
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Email</Text>
-          <TextInput value={formState.email} editable={false} style={[styles.input, styles.disabled]} />
-        </View>
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>College ID</Text>
-          <TextInput
-            value={formState.collegeId}
-            onChangeText={(value) => handleChange('collegeId', value)}
-            placeholder="Enter your college ID"
-            style={styles.input}
+          <TextInput 
+            value={formState.email} 
+            editable={false} 
+            style={[styles.input, styles.disabled]} 
           />
         </View>
+        
+        {data.role !== 'INDUSTRY' && (
+          <>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Phone</Text>
+              <TextInput
+                keyboardType="phone-pad"
+                value={formState.phone}
+                onChangeText={(value) => handleChange('phone', value)}
+                placeholder="+91 XXXXXXXXXX"
+                placeholderTextColor="#94a3b8"
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>University</Text>
+              <TextInput
+                value={formState.university}
+                onChangeText={(value) => handleChange('university', value)}
+                placeholder="Enter university name"
+                placeholderTextColor="#94a3b8"
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>College</Text>
+              <TextInput
+                value={formState.college}
+                onChangeText={(value) => handleChange('college', value)}
+                placeholder="Enter college name"
+                placeholderTextColor="#94a3b8"
+                style={styles.input}
+              />
+            </View>
+          </>
+        )}
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Academic profile</Text>
-        <View style={styles.row}>
-          <View style={[styles.fieldGroup, styles.halfWidth]}>
-            <Text style={styles.label}>Course</Text>
-            <TextInput
-              value={formState.course}
-              onChangeText={(value) => handleChange('course', value)}
-              placeholder="B.Tech Computer Science"
-              style={styles.input}
-            />
+      {/* Student Profile */}
+      {data.role === 'STUDENT' && (
+        <>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Academic Information</Text>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Enrollment Number</Text>
+              <TextInput
+                value={formState.enrollmentNo}
+                onChangeText={(value) => handleChange('enrollmentNo', value)}
+                placeholder="Enter enrollment number"
+                placeholderTextColor="#94a3b8"
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.row}>
+              <View style={[styles.fieldGroup, styles.halfWidth]}>
+                <Text style={styles.label}>Course</Text>
+                <TextInput
+                  value={formState.course}
+                  onChangeText={(value) => handleChange('course', value)}
+                  placeholder="B.Tech Computer Science"
+                  placeholderTextColor="#94a3b8"
+                  style={styles.input}
+                />
+              </View>
+              <View style={[styles.fieldGroup, styles.halfWidth]}>
+                <Text style={styles.label}>Year</Text>
+                <TextInput
+                  value={formState.year}
+                  onChangeText={(value) => handleChange('year', value)}
+                  placeholder="3rd"
+                  placeholderTextColor="#94a3b8"
+                  style={styles.input}
+                />
+              </View>
+            </View>
           </View>
-          <View style={[styles.fieldGroup, styles.halfWidth]}>
-            <Text style={styles.label}>Year</Text>
-            <TextInput
-              value={formState.year}
-              onChangeText={(value) => handleChange('year', value)}
-              placeholder="3rd"
-              style={styles.input}
-            />
-          </View>
-        </View>
-      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Career profile</Text>
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Skills</Text>
-          <TextInput
-            value={formState.skills}
-            onChangeText={(value) => handleChange('skills', value)}
-            placeholder="e.g. JavaScript, UI Design, React Native"
-            style={[styles.input, styles.textArea]}
-            multiline
-            numberOfLines={3}
-          />
-          <Text style={styles.helperText}>Separate skills with commas to keep your profile organised.</Text>
-        </View>
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Resume link</Text>
-          <TextInput
-            value={formState.resume}
-            onChangeText={(value) => handleChange('resume', value)}
-            placeholder="https://..."
-            style={styles.input}
-            autoCapitalize="none"
-            keyboardType="url"
-          />
-        </View>
-      </View>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Skills & Resume</Text>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Skills</Text>
+              <TextInput
+                value={formState.skills}
+                onChangeText={(value) => handleChange('skills', value)}
+                placeholder="e.g. JavaScript, UI Design, React Native"
+                placeholderTextColor="#94a3b8"
+                style={[styles.input, styles.textArea]}
+                multiline
+                numberOfLines={3}
+              />
+              <Text style={styles.helperText}>Separate skills with commas</Text>
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Resume URL</Text>
+              <TextInput
+                value={formState.resumeUrl}
+                onChangeText={(value) => handleChange('resumeUrl', value)}
+                placeholder="https://..."
+                placeholderTextColor="#94a3b8"
+                style={styles.input}
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+            </View>
+          </View>
+        </>
+      )}
+
+      {/* Faculty Profile */}
+      {data.role === 'FACULTY' && (
+        <>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Faculty Information</Text>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Faculty ID</Text>
+              <TextInput
+                value={formState.facultyId}
+                onChangeText={(value) => handleChange('facultyId', value)}
+                placeholder="Enter faculty ID"
+                placeholderTextColor="#94a3b8"
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Designation</Text>
+              <TextInput
+                value={formState.designation}
+                onChangeText={(value) => handleChange('designation', value)}
+                placeholder="e.g. Assistant Professor"
+                placeholderTextColor="#94a3b8"
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Department</Text>
+              <TextInput
+                value={formState.department}
+                onChangeText={(value) => handleChange('department', value)}
+                placeholder="e.g. Computer Science"
+                placeholderTextColor="#94a3b8"
+                style={styles.input}
+              />
+            </View>
+          </View>
+        </>
+      )}
+
+      {/* Industry Profile */}
+      {data.role === 'INDUSTRY' && (
+        <>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Company Information</Text>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Company Name</Text>
+              <TextInput
+                value={formState.companyName}
+                onChangeText={(value) => handleChange('companyName', value)}
+                placeholder="Enter company name"
+                placeholderTextColor="#94a3b8"
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Company Website</Text>
+              <TextInput
+                value={formState.companyWebsite}
+                onChangeText={(value) => handleChange('companyWebsite', value)}
+                placeholder="https://..."
+                placeholderTextColor="#94a3b8"
+                style={styles.input}
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Contact Person Name</Text>
+              <TextInput
+                value={formState.contactPersonName}
+                onChangeText={(value) => handleChange('contactPersonName', value)}
+                placeholder="Enter contact person name"
+                placeholderTextColor="#94a3b8"
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Contact Number</Text>
+              <TextInput
+                keyboardType="phone-pad"
+                value={formState.contactNumber}
+                onChangeText={(value) => handleChange('contactNumber', value)}
+                placeholder="+91 XXXXXXXXXX"
+                placeholderTextColor="#94a3b8"
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Designation</Text>
+              <TextInput
+                value={formState.designation}
+                onChangeText={(value) => handleChange('designation', value)}
+                placeholder="e.g. HR Manager"
+                placeholderTextColor="#94a3b8"
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Company Address</Text>
+              <TextInput
+                value={formState.companyAddress}
+                onChangeText={(value) => handleChange('companyAddress', value)}
+                placeholder="Enter company address"
+                placeholderTextColor="#94a3b8"
+                style={[styles.input, styles.textArea]}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+          </View>
+        </>
+      )}
 
       <Pressable
         style={[styles.primaryButton, (!hasChanges || updateMutation.isPending) && styles.buttonDisabled]}

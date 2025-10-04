@@ -12,8 +12,8 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
     DATABASE_URL: str = "postgresql+asyncpg://prashiskhan_Admin:VermajiAdmin@localhost:5432/prashiskshan"
     SECRET_KEY: str = "VermaJiPrashikshan"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 43200  # 30 days in minutes
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 365  # 1 year
     JWT_ALGORITHM: str = "HS256"
     S3_ENDPOINT: Optional[str] = None
     S3_BUCKET: Optional[str] = None

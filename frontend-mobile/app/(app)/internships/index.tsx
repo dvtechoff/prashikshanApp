@@ -14,6 +14,7 @@ import {
 
 import { useInternshipFilters, useInternshipList } from '@/hooks/useInternships';
 import { useCurrentUserQuery } from '@/hooks/useCurrentUser';
+import { useApplicationList } from '@/hooks/useApplications';
 
 const EmptyState = () => (
   <View style={styles.emptyState}>
@@ -49,44 +50,58 @@ export default function InternshipListScreen() {
 
   const { data, isLoading, isRefetching, refetch } = useInternshipList(filters);
   const internships = useInternshipFilters(data ?? [], search);
+  const { data: applications } = useApplicationList();
 
   const isIndustry = user?.role === 'INDUSTRY';
 
-  const renderItem = ({ item }: { item: (typeof internships)[number] }) => (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => router.push({ pathname: '/(app)/internships/[id]', params: { id: item.id } })}
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-    >
-      <View style={styles.cardHeader}>
-        <Text style={styles.title}>{item.title}</Text>
-        {item.remote && <Text style={styles.remoteBadge}>Remote</Text>}
-      </View>
-      {item.location && <Text style={styles.location}>{item.location}</Text>}
-      {item.skills && item.skills.length > 0 && (
-        <View style={styles.skillRow}>
-          {item.skills.slice(0, 3).map((skill) => (
-            <View key={skill} style={styles.skillChip}>
-              <Text style={styles.skillText}>{skill}</Text>
-            </View>
-          ))}
-          {item.skills.length > 3 && (
-            <View style={styles.moreChip}>
-              <Text style={styles.moreChipText}>+{item.skills.length - 3}</Text>
-            </View>
+  // Create a set of internship IDs that the user has already applied to
+  const appliedInternshipIds = useMemo(() => {
+    if (!applications) return new Set<string>();
+    return new Set(applications.map(app => app.internship_id));
+  }, [applications]);
+
+  const renderItem = ({ item }: { item: (typeof internships)[number] }) => {
+    const hasApplied = appliedInternshipIds.has(item.id);
+    
+    return (
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push({ pathname: '/(app)/internships/[id]', params: { id: item.id } })}
+        style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      >
+        <View style={styles.cardHeader}>
+          <Text style={styles.title}>{item.title}</Text>
+          <View style={styles.badges}>
+            {item.remote && <Text style={styles.remoteBadge}>Remote</Text>}
+            {hasApplied && <Text style={styles.appliedBadge}>Applied</Text>}
+          </View>
+        </View>
+        {item.location && <Text style={styles.location}>{item.location}</Text>}
+        {item.skills && item.skills.length > 0 && (
+          <View style={styles.skillRow}>
+            {item.skills.slice(0, 3).map((skill) => (
+              <View key={skill} style={styles.skillChip}>
+                <Text style={styles.skillText}>{skill}</Text>
+              </View>
+            ))}
+            {item.skills.length > 3 && (
+              <View style={styles.moreChip}>
+                <Text style={styles.moreChipText}>+{item.skills.length - 3}</Text>
+              </View>
+            )}
+          </View>
+        )}
+        <View style={styles.metaRow}>
+          {item.duration_weeks && (
+            <Text style={styles.metaText}>Duration: {item.duration_weeks} weeks</Text>
+          )}
+          {item.credits !== null && item.credits !== undefined && (
+            <Text style={styles.metaText}>Credits: {item.credits}</Text>
           )}
         </View>
-      )}
-      <View style={styles.metaRow}>
-        {item.duration_weeks && (
-          <Text style={styles.metaText}>Duration: {item.duration_weeks} weeks</Text>
-        )}
-        {item.credits !== null && item.credits !== undefined && (
-          <Text style={styles.metaText}>Credits: {item.credits}</Text>
-        )}
-      </View>
-    </Pressable>
-  );
+      </Pressable>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -253,18 +268,32 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
+    gap: 8
+  },
+  badges: {
+    flexDirection: 'row',
+    gap: 6,
+    flexShrink: 0
   },
   title: {
     fontSize: 18,
     fontWeight: '600',
     color: '#0f172a',
-    flex: 1,
-    paddingRight: 8
+    flex: 1
   },
   remoteBadge: {
     backgroundColor: '#dcfce7',
     color: '#15803d',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+    fontWeight: '600',
+    fontSize: 12
+  },
+  appliedBadge: {
+    backgroundColor: '#e0f2fe',
+    color: '#0369a1',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 999,

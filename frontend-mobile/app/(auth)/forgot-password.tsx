@@ -3,7 +3,10 @@ import { Link, router } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -41,57 +44,71 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Forgot password?</Text>
-      <Text style={styles.subtitle}>
-        Enter your email and we'll send you a link to reset your password.
-      </Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Email address</Text>
-        <TextInput
-          value={email}
-          onChangeText={setEmail}
-          placeholder="your.email@example.com"
-          placeholderTextColor="#94a3b8"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-          style={styles.input}
-        />
-      </View>
-
-      <Pressable
-        style={[styles.primaryButton, (!email || isLoading) && styles.primaryButtonDisabled]}
-        onPress={handleSubmit}
-        disabled={!email || isLoading}
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {isLoading ? (
-          <ActivityIndicator color="#ffffff" />
-        ) : (
-          <Text style={styles.primaryButtonText}>Send reset link</Text>
-        )}
-      </Pressable>
+        <Text style={styles.title}>Forgot password?</Text>
+        <Text style={styles.subtitle}>
+          Enter your email and we'll send you a link to reset your password.
+        </Text>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>Remember your password? </Text>
-        <Link href="/(auth)/login" asChild>
-          <Pressable>
-            <Text style={styles.link}>Sign in</Text>
-          </Pressable>
-        </Link>
-      </View>
-    </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Email address</Text>
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder="your.email@example.com"
+            placeholderTextColor="#94a3b8"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+            style={styles.input}
+          />
+        </View>
+
+        <Pressable
+          style={[styles.primaryButton, (!email || isLoading) && styles.primaryButtonDisabled]}
+          onPress={handleSubmit}
+          disabled={!email || isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.primaryButtonText}>Send reset link</Text>
+          )}
+        </Pressable>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Remember your password? </Text>
+          <Link href="/(auth)/login" asChild>
+            <Pressable>
+              <Text style={styles.link}>Sign in</Text>
+            </Pressable>
+          </Link>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f8fafc'
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: '#f8fafc',
-    gap: 20
+    gap: 20,
+    minHeight: '100%'
   },
   title: {
     fontSize: 28,

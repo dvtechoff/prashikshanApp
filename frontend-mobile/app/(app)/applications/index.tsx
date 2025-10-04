@@ -7,7 +7,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   View
 } from 'react-native';
 
@@ -15,55 +14,59 @@ import { useApplicationList } from '@/hooks/useApplications';
 import { useCurrentUserQuery } from '@/hooks/useCurrentUser';
 import { useInternshipList } from '@/hooks/useInternships';
 
-const statusColor = (status: string) => {
-  switch (status) {
-    case 'APPROVED':
-      return { background: '#dcfce7', text: '#15803d' };
-    case 'REJECTED':
-      return { background: '#fee2e2', text: '#b91c1c' };
-    default:
-      return { background: '#e0f2fe', text: '#0369a1' };
-  }
+type TabType = 'ACTIVE' | 'PAST';
+
+const statusConfig = {
+  APPLIED: { label: 'Applied', color: '#0369a1', background: '#e0f2fe', icon: '●' },
+  PENDING: { label: 'Applied', color: '#0369a1', background: '#e0f2fe', icon: '●' },
+  INTERVIEWING: { label: 'Interviewing', color: '#15803d', background: '#dcfce7', icon: '●' },
+  APPROVED: { label: 'Accepted', color: '#15803d', background: '#dcfce7', icon: '●' },
+  REJECTED: { label: 'Rejected', color: '#b91c1c', background: '#fee2e2', icon: '●' }
+};
+
+const getCompanyInitials = (title: string): string => {
+  const words = title.split(' ').filter(w => w.length > 0);
+  if (words.length === 0) return '??';
+  if (words.length === 1) return words[0].substring(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+};
+
+const getLogoBackground = (title: string): string => {
+  const colors = ['#fef3c7', '#dbeafe', '#e0e7ff', '#fce7f3', '#d1fae5'];
+  const index = title.length % colors.length;
+  return colors[index];
 };
 
 const ApplicationCard = ({
   internshipTitle,
   appliedAt,
-  industryStatus,
-  facultyStatus,
-  studentId,
-  isFaculty,
-  onPress,
-  onStudentPress
+  status,
+  onPress
 }: {
-  internshipTitle?: string;
+  internshipTitle: string;
   appliedAt: string;
-  industryStatus: string;
-  facultyStatus: string;
-  studentId: string;
-  isFaculty: boolean;
+  status: string;
   onPress: () => void;
-  onStudentPress?: (studentId: string) => void;
 }) => {
-  const industryPalette = statusColor(industryStatus);
-  const facultyPalette = statusColor(facultyStatus);
+  const statusInfo = statusConfig[status as keyof typeof statusConfig] || statusConfig.APPLIED;
+  const initials = getCompanyInitials(internshipTitle);
+  const logoBackground = getLogoBackground(internshipTitle);
+
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{internshipTitle ?? 'Internship application'}</Text>
-        {isFaculty && onStudentPress && (
-          <Pressable onPress={() => onStudentPress(studentId)}>
-            <Text style={styles.studentLink}>Student #{studentId}</Text>
-          </Pressable>
-        )}
-      </View>
-      <Text style={styles.cardMeta}>Applied on {new Date(appliedAt).toLocaleDateString()}</Text>
-      <View style={styles.badgeRow}>
-        <View style={[styles.statusBadge, { backgroundColor: industryPalette.background }]}>
-          <Text style={[styles.statusText, { color: industryPalette.text }]}>Industry: {industryStatus}</Text>
+      <View style={styles.cardContent}>
+        <View style={[styles.logo, { backgroundColor: logoBackground }]}>
+          <Text style={styles.logoText}>{initials}</Text>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: facultyPalette.background }]}>
-          <Text style={[styles.statusText, { color: facultyPalette.text }]}>Faculty: {facultyStatus}</Text>
+        
+        <View style={styles.cardInfo}>
+          <Text style={styles.cardTitle} numberOfLines={1}>{internshipTitle}</Text>
+          <Text style={styles.cardMeta}>Applied on {new Date(appliedAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}</Text>
+        </View>
+
+        <View style={[styles.statusBadge, { backgroundColor: statusInfo.background }]}>
+          <Text style={styles.statusIcon}>{statusInfo.icon}</Text>
+          <Text style={[styles.statusText, { color: statusInfo.color }]}>{statusInfo.label}</Text>
         </View>
       </View>
     </Pressable>
@@ -74,18 +77,9 @@ export default function ApplicationsScreen() {
   const { data: currentUser } = useCurrentUserQuery();
   const { data, isLoading, isRefetching, refetch } = useApplicationList();
   const { data: internships } = useInternshipList();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
+  const [activeTab, setActiveTab] = useState<TabType>('ACTIVE');
 
   const role = currentUser?.role ?? 'STUDENT';
-  const isFaculty = role === 'FACULTY';
-
-  const pendingCount = useMemo(() => {
-    if (!data) {
-      return 0;
-    }
-    return data.filter((item) => item.industry_status === 'PENDING' || item.faculty_status === 'PENDING').length;
-  }, [data]);
 
   const internshipTitleMap = useMemo(() => {
     if (!internships) {
@@ -97,144 +91,97 @@ export default function ApplicationsScreen() {
     }, {} as Record<string, string>);
   }, [internships]);
 
+  // Determine overall status for student applications
+  const getOverallStatus = (industryStatus: string, facultyStatus: string): string => {
+    if (industryStatus === 'REJECTED' || facultyStatus === 'REJECTED') return 'REJECTED';
+    if (industryStatus === 'APPROVED' && facultyStatus === 'APPROVED') return 'APPROVED';
+    if (industryStatus === 'APPROVED' || facultyStatus === 'APPROVED') return 'INTERVIEWING';
+    return 'APPLIED';
+  };
+
   const filteredApplications = useMemo(() => {
     if (!data) {
       return [];
     }
-    let filtered = [...data];
-
-    // Faculty-specific filtering
-    if (isFaculty) {
-      if (filterStatus !== 'ALL') {
-        filtered = filtered.filter((app) => app.faculty_status === filterStatus);
+    
+    return data.filter((app) => {
+      const overallStatus = getOverallStatus(app.industry_status, app.faculty_status);
+      
+      if (activeTab === 'ACTIVE') {
+        return overallStatus !== 'REJECTED' && overallStatus !== 'APPROVED';
+      } else {
+        return overallStatus === 'REJECTED' || overallStatus === 'APPROVED';
       }
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        filtered = filtered.filter((app) => {
-          const internshipTitle = internshipTitleMap[app.internship_id]?.toLowerCase() ?? '';
-          const studentId = app.student_id.toLowerCase();
-          return internshipTitle.includes(query) || studentId.includes(query);
-        });
-      }
-    }
+    });
+  }, [data, activeTab]);
 
-    return filtered;
-  }, [data, filterStatus, isFaculty, internshipTitleMap, searchQuery]);
-
-  const headerText = useMemo(() => {
-    switch (role) {
-      case 'FACULTY':
-        return {
-          title: 'Student applications awaiting review',
-          subtitle: pendingCount
-            ? `${pendingCount} application${pendingCount > 1 ? 's' : ''} need your review.`
-            : 'All caught up! No applications pending.'
-        };
-      case 'INDUSTRY':
-        return {
-          title: 'Applications for your internships',
-          subtitle: pendingCount
-            ? `You have ${pendingCount} applicants to review.`
-            : 'No applications awaiting decision.'
-        };
-      default:
-        return {
-          title: 'Your internship applications',
-          subtitle: pendingCount
-            ? `${pendingCount} application${pendingCount > 1 ? 's are' : ' is'} still under review.`
-            : 'Stay tuned for updates from faculty and industry mentors.'
-        };
-    }
-  }, [pendingCount, role]);
-
-  const handleCreate = () => {
-    router.push('/(app)/applications/new' as never);
-  };
+  if (isLoading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#2563eb" />
+        <Text style={styles.loadingText}>Loading applications…</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{headerText.title}</Text>
-        <Text style={styles.subtitle}>{headerText.subtitle}</Text>
+      {/* Tabs */}
+      <View style={styles.tabContainer}>
+        <Pressable
+          style={[styles.tab, activeTab === 'ACTIVE' && styles.tabActive]}
+          onPress={() => setActiveTab('ACTIVE')}
+        >
+          <Text style={[styles.tabText, activeTab === 'ACTIVE' && styles.tabTextActive]}>
+            Active
+          </Text>
+          {activeTab === 'ACTIVE' && <View style={styles.tabIndicator} />}
+        </Pressable>
+        <Pressable
+          style={[styles.tab, activeTab === 'PAST' && styles.tabActive]}
+          onPress={() => setActiveTab('PAST')}
+        >
+          <Text style={[styles.tabText, activeTab === 'PAST' && styles.tabTextActive]}>
+            Past
+          </Text>
+          {activeTab === 'PAST' && <View style={styles.tabIndicator} />}
+        </Pressable>
       </View>
 
-      {role === 'STUDENT' && (
-        <Pressable style={styles.primaryButton} onPress={handleCreate}>
-          <Text style={styles.primaryButtonText}>Apply to a new internship</Text>
-        </Pressable>
-      )}
-
-      {isFaculty && (
-        <View style={styles.filterSection}>
-          <TextInput
-            placeholder="Search by internship or student ID"
-            placeholderTextColor="#94a3b8"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            style={styles.searchInput}
-          />
-          <View style={styles.filterRow}>
-            {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => (
-              <Pressable
-                key={status}
-                style={[styles.filterChip, filterStatus === status && styles.filterChipActive]}
-                onPress={() => setFilterStatus(status)}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    filterStatus === status && styles.filterChipTextActive
-                  ]}
-                >
-                  {status}
-                </Text>
-              </Pressable>
-            ))}
+      {/* Applications List */}
+      <FlatList
+        data={filteredApplications}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>
+              {activeTab === 'ACTIVE' ? 'No active applications' : 'No past applications'}
+            </Text>
+            <Text style={styles.emptyDescription}>
+              {activeTab === 'ACTIVE'
+                ? 'Apply to internships to see them here'
+                : 'Completed applications will appear here'}
+            </Text>
           </View>
-        </View>
-      )}
-
-      {isLoading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={styles.loadingText}>Loading applications…</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredApplications}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>No applications yet</Text>
-              <Text style={styles.emptyDescription}>
-                {role === 'STUDENT'
-                  ? 'Browse internships and submit your first application.'
-                  : 'Invite students to apply or check back later.'}
-              </Text>
-            </View>
-          }
-          refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor="#2563eb" />
-          }
-          renderItem={({ item }) => (
+        }
+        refreshControl={
+          <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor="#2563eb" />
+        }
+        renderItem={({ item }) => {
+          const overallStatus = getOverallStatus(item.industry_status, item.faculty_status);
+          return (
             <ApplicationCard
-              internshipTitle={internshipTitleMap[item.internship_id]}
+              internshipTitle={internshipTitleMap[item.internship_id] || 'Internship'}
               appliedAt={item.applied_at}
-              industryStatus={item.industry_status}
-              facultyStatus={item.faculty_status}
-              studentId={item.student_id}
-              isFaculty={isFaculty}
+              status={overallStatus}
               onPress={() =>
                 router.push({ pathname: '/(app)/applications/[id]', params: { id: item.id } } as never)
               }
-              onStudentPress={(studentId) =>
-                router.push({ pathname: '/(app)/students/[id]', params: { id: studentId } } as never)
-              }
             />
-          )}
-        />
-      )}
+          );
+        }}
+      />
     </View>
   );
 }
@@ -242,78 +189,97 @@ export default function ApplicationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc'
+    backgroundColor: '#ffffff'
   },
-  header: {
-    padding: 20,
-    gap: 4
+  tabContainer: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    backgroundColor: '#ffffff'
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#0f172a'
+  tab: {
+    flex: 1,
+    paddingVertical: 16,
+    alignItems: 'center',
+    position: 'relative'
   },
-  subtitle: {
+  tabActive: {
+    // Active tab styling handled by indicator
+  },
+  tabText: {
     fontSize: 15,
-    color: '#475569'
+    fontWeight: '500',
+    color: '#64748b'
   },
-  primaryButton: {
-    marginHorizontal: 20,
-    marginBottom: 12,
-    backgroundColor: '#2563eb',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center'
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
+  tabTextActive: {
+    color: '#0f172a',
     fontWeight: '600'
   },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: '#2563eb'
+  },
   list: {
-    padding: 20,
-    gap: 16
+    padding: 16,
+    gap: 12
   },
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
-    padding: 18,
-    gap: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
     shadowColor: '#0f172a',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
     elevation: 1
   },
-  cardHeader: {
+  cardContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 8
+    alignItems: 'center',
+    gap: 12
+  },
+  logo: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  logoText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a'
+  },
+  cardInfo: {
+    flex: 1,
+    gap: 4
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#0f172a',
-    flex: 1
-  },
-  studentLink: {
-    fontSize: 13,
-    color: '#2563eb',
-    fontWeight: '600'
+    color: '#0f172a'
   },
   cardMeta: {
+    fontSize: 13,
     color: '#64748b'
   },
-  badgeRow: {
-    flexDirection: 'row',
-    gap: 10
-  },
   statusBadge: {
-    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 999
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    gap: 4
+  },
+  statusIcon: {
+    fontSize: 8,
+    lineHeight: 8
   },
   statusText: {
     fontSize: 13,
@@ -327,12 +293,13 @@ const styles = StyleSheet.create({
     gap: 12
   },
   loadingText: {
-    color: '#475569'
+    color: '#475569',
+    fontSize: 15
   },
   emptyState: {
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 60,
+    paddingVertical: 80,
     paddingHorizontal: 20
   },
   emptyTitle: {
@@ -341,45 +308,8 @@ const styles = StyleSheet.create({
     color: '#0f172a'
   },
   emptyDescription: {
+    fontSize: 15,
     color: '#64748b',
     textAlign: 'center'
-  },
-  filterSection: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    gap: 12
-  },
-  searchInput: {
-    height: 48,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    color: '#0f172a'
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8
-  },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#cbd5f5',
-    backgroundColor: '#ffffff'
-  },
-  filterChipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb'
-  },
-  filterChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1e293b'
-  },
-  filterChipTextActive: {
-    color: '#ffffff'
   }
 });
