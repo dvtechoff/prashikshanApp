@@ -15,7 +15,6 @@ import { useApplicationList } from '@/hooks/useApplications';
 import { useLogbookEntryList } from '@/hooks/useLogbookEntries';
 import { useNotificationList } from '@/hooks/useNotifications';
 import { useInternshipList } from '@/hooks/useInternships';
-import { useSignOut } from '@/hooks/useAuth';
 import { useCurrentUserQuery } from '@/hooks/useCurrentUser';
 
 const formatDate = (isoDate: string) => new Date(isoDate).toLocaleDateString();
@@ -44,16 +43,10 @@ export default function DashboardScreen() {
   const { data: logbookEntries } = useLogbookEntryList();
   const { data: notifications } = useNotificationList();
   const { data: internships } = useInternshipList();
-  const signOut = useSignOut();
 
   const joinedDate = useMemo(() => (data ? formatDate(data.created_at) : null), [data]);
 
   const role = data?.role ?? 'STUDENT';
-
-  const handleSignOut = async () => {
-    await signOut();
-    router.replace('/(auth)/login');
-  };
 
   // ============== STUDENT DASHBOARD DATA ==============
   if (role === 'STUDENT') {
@@ -347,11 +340,6 @@ export default function DashboardScreen() {
             </Pressable>
           </View>
         </View>
-
-        {/* Sign Out Button */}
-        <Pressable style={styles.signOutButton} onPress={handleSignOut}>
-          <Text style={styles.signOutButtonText}>Sign out</Text>
-        </Pressable>
       </ScrollView>
     );
   }
@@ -505,9 +493,6 @@ export default function DashboardScreen() {
             <Text style={styles.primaryButtonText}>Retry</Text>
           )}
         </Pressable>
-        <Pressable style={styles.secondaryButton} onPress={handleSignOut}>
-          <Text style={styles.secondaryButtonText}>Sign out</Text>
-        </Pressable>
       </View>
     );
   }
@@ -553,10 +538,6 @@ export default function DashboardScreen() {
           <QuickLink key={link.title} {...link} />
         ))}
       </View>
-
-      <Pressable style={styles.primaryButton} onPress={handleSignOut}>
-        <Text style={styles.primaryButtonText}>Sign out</Text>
-      </Pressable>
     </ScrollView>
   );
 }
@@ -1000,19 +981,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#0f172a',
     textAlign: 'center'
-  },
-  signOutButton: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center'
-  },
-  signOutButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#64748b'
   },
   // Faculty/Industry Dashboard (Original styles)
   title: {

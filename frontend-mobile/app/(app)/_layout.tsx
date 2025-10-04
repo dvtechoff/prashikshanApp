@@ -52,10 +52,10 @@ export default function AppLayout() {
   );
 
   const tabsByRole: Record<string, string[]> = {
-    STUDENT: ['dashboard', 'internships', 'applications', 'logbook', 'notifications', 'profile'],
-    FACULTY: ['dashboard', 'applications', 'logbook', 'analytics', 'notifications', 'profile'],
-    INDUSTRY: ['dashboard', 'internships', 'applications', 'analytics', 'notifications', 'profile'],
-    ADMIN: ['dashboard', 'analytics', 'notifications', 'profile']
+    STUDENT: ['dashboard', 'internships', 'logbook', 'notifications', 'profile'],
+    FACULTY: ['dashboard', 'logbook', 'notifications', 'profile'],
+    INDUSTRY: ['dashboard', 'internships', 'notifications', 'profile'],
+    ADMIN: ['dashboard', 'notifications', 'profile']
   };
 
   const tabOptions: Record<
