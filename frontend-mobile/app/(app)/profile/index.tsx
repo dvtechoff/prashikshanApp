@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { router } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
@@ -9,11 +10,15 @@ import {
   View
 } from 'react-native';
 import { Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import {
   useCurrentUserQuery,
   useUpdateCurrentUserMutation
 } from '@/hooks/useCurrentUser';
+import { useApplicationList } from '@/hooks/useApplications';
+import { useLogbookEntryList } from '@/hooks/useLogbookEntries';
+import { useNotificationList } from '@/hooks/useNotifications';
 
 interface ExtendedProfileState {
   name: string;
@@ -62,7 +67,30 @@ const initialState: ExtendedProfileState = {
 export default function ProfileScreen() {
   const { data, isLoading } = useCurrentUserQuery();
   const updateMutation = useUpdateCurrentUserMutation();
+  const { data: applications } = useApplicationList();
+  const { data: logbookEntries } = useLogbookEntryList();
+  const { data: notifications } = useNotificationList();
   const [formState, setFormState] = useState<ExtendedProfileState>(initialState);
+
+  // Calculate stats for student
+  const stats = useMemo(() => {
+    if (data?.role !== 'STUDENT') return null;
+    
+    const unreadNotifications = (notifications ?? []).filter((n) => !n.read);
+    const totalApplications = applications?.length ?? 0;
+    const totalHours = logbookEntries?.reduce((sum, entry) => sum + entry.hours, 0) ?? 0;
+    const acceptedCount = (applications ?? []).filter(
+      (app) => app.industry_status === 'APPROVED' && app.faculty_status === 'APPROVED'
+    ).length;
+    const creditsEarned = acceptedCount * 4;
+    
+    return {
+      applications: totalApplications,
+      hours: totalHours,
+      credits: creditsEarned,
+      unread: unreadNotifications.length
+    };
+  }, [data?.role, applications, logbookEntries, notifications]);
 
   useEffect(() => {
     if (!data) {
@@ -204,6 +232,46 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {/* Stats Cards - Only for Students */}
+      {data.role === 'STUDENT' && stats && (
+        <View style={styles.statsSection}>
+          <Text style={styles.statsTitle}>Your Activity</Text>
+          <View style={styles.statsGrid}>
+            <Pressable style={styles.statCard} onPress={() => router.push('/(app)/applications')}>
+              <View style={[styles.statIcon, { backgroundColor: '#dbeafe' }]}>
+                <Ionicons name="briefcase" size={24} color="#2563eb" />
+              </View>
+              <Text style={styles.statValue}>{stats.applications}</Text>
+              <Text style={styles.statLabel}>Applications</Text>
+            </Pressable>
+
+            <Pressable style={styles.statCard} onPress={() => router.push('/(app)/logbook')}>
+              <View style={[styles.statIcon, { backgroundColor: '#fef3c7' }]}>
+                <Ionicons name="time" size={24} color="#f59e0b" />
+              </View>
+              <Text style={styles.statValue}>{stats.hours}</Text>
+              <Text style={styles.statLabel}>Hours Logged</Text>
+            </Pressable>
+
+            <Pressable style={styles.statCard} onPress={() => router.push('/(app)/credits')}>
+              <View style={[styles.statIcon, { backgroundColor: '#d1fae5' }]}>
+                <Ionicons name="trophy" size={24} color="#10b981" />
+              </View>
+              <Text style={styles.statValue}>{stats.credits}</Text>
+              <Text style={styles.statLabel}>Credits Earned</Text>
+            </Pressable>
+
+            <Pressable style={styles.statCard} onPress={() => router.push('/(app)/notifications')}>
+              <View style={[styles.statIcon, { backgroundColor: '#fce7f3' }]}>
+                <Ionicons name="notifications" size={24} color="#ec4899" />
+              </View>
+              <Text style={styles.statValue}>{stats.unread}</Text>
+              <Text style={styles.statLabel}>Unread Alerts</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
       <Text style={styles.title}>Personal information</Text>
       <Text style={styles.subtitle}>
         {data.role === 'INDUSTRY' ? 'Update your company details' : 'Update your contact details and profile'}
@@ -472,6 +540,52 @@ const styles = StyleSheet.create({
     gap: 20,
     backgroundColor: '#f8fafc'
   },
+  // Stats Section
+  statsSection: {
+    gap: 12
+  },
+  statsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a'
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12
+  },
+  statCard: {
+    flex: 1,
+    minWidth: '46%',
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 16,
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1
+  },
+  statIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#0f172a'
+  },
+  statLabel: {
+    fontSize: 13,
+    color: '#64748b',
+    textAlign: 'center'
+  },
+  // Profile Form
   title: {
     fontSize: 24,
     fontWeight: '700',
