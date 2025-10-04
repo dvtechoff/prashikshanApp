@@ -7,6 +7,8 @@ import DashboardLayout from './layouts/DashboardLayout';
 
 // Auth Pages
 import LoginPage from './pages/auth/LoginPage';
+import SignUpPage from './pages/auth/SignUpPage';
+import PendingApprovalPage from './pages/auth/PendingApprovalPage';
 
 // Dashboard Pages
 import DashboardPage from './pages/dashboard/DashboardPage';
@@ -45,7 +47,8 @@ function App() {
       {/* Public Routes */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
-        <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" /> : <ComingSoon />} />
+        <Route path="/register" element={isAuthenticated ? <Navigate to="/dashboard" /> : <SignUpPage />} />
+        <Route path="/pending-approval" element={<PendingApprovalPage />} />
         <Route path="/forgot-password" element={isAuthenticated ? <Navigate to="/dashboard" /> : <ComingSoon />} />
       </Route>
 
