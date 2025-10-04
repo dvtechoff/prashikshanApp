@@ -2,7 +2,7 @@ import axios from 'axios';
 
 import { apiClient } from './client';
 
-import type { NotificationPayload } from '@/types/api';
+import type { NotificationPayload, NotificationCreateRequest, NotificationBulkCreateRequest } from '@/types/api';
 
 export const listNotifications = async (): Promise<NotificationPayload[]> => {
   try {
@@ -25,4 +25,14 @@ export const markNotificationAsRead = async (id: string): Promise<void> => {
     }
     throw error;
   }
+};
+
+export const createNotification = async (payload: NotificationCreateRequest): Promise<NotificationPayload> => {
+  const { data } = await apiClient.post<NotificationPayload>('/api/v1/notifications', payload);
+  return data;
+};
+
+export const createBulkNotification = async (payload: NotificationBulkCreateRequest): Promise<NotificationPayload[]> => {
+  const { data } = await apiClient.post<NotificationPayload[]>('/api/v1/notifications/bulk', payload);
+  return data;
 };

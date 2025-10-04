@@ -248,6 +248,21 @@ export interface NotificationPayload {
   created_at: string;
 }
 
+export interface NotificationCreateRequest {
+  user_id: string;
+  title: string;
+  body?: string;
+  payload?: Record<string, unknown>;
+}
+
+export interface NotificationBulkCreateRequest {
+  title: string;
+  body?: string;
+  payload?: Record<string, unknown>;
+  target_role?: 'STUDENT' | 'FACULTY' | 'INDUSTRY';
+  user_ids?: string[];
+}
+
 export interface AnalyticsSummary {
   internships_open: number;
   applications_submitted: number;

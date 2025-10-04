@@ -14,6 +14,7 @@ from app.schemas.application import ApplicationCreate, ApplicationUpdate
 from app.schemas.logbook import LogbookEntryCreate, LogbookEntryUpdate
 from app.schemas.credit import CreditCreate, CreditUpdate
 from app.schemas.report import ReportCreate, ReportUpdate
+from app.schemas.notification import NotificationCreate, NotificationUpdate, NotificationBulkCreate
 
 
 async def get_user_by_email(session: AsyncSession, email: str) -> Optional[models.User]:
@@ -598,3 +599,94 @@ async def update_report(
     await session.commit()
     await session.refresh(report)
     return report
+
+
+# ==================== Notification Functions ====================
+
+async def create_notification(
+    session: AsyncSession, notification_in: NotificationCreate
+) -> models.Notification:
+    notification = models.Notification(
+        user_id=notification_in.user_id,
+        title=notification_in.title,
+        body=notification_in.body,
+        payload=notification_in.payload,
+    )
+    session.add(notification)
+    await session.commit()
+    await session.refresh(notification)
+    return notification
+
+
+async def create_bulk_notifications(
+    session: AsyncSession, notification_in: NotificationBulkCreate
+) -> List[models.Notification]:
+    """Create notifications for multiple users"""
+    user_ids = []
+    
+    # If target_role is specified, get all users with that role
+    if notification_in.target_role:
+        result = await session.execute(
+            select(models.User.id).where(models.User.role == notification_in.target_role)
+        )
+        user_ids = [row[0] for row in result.all()]
+    
+    # If specific user_ids provided, use those (or append to role-based list)
+    if notification_in.user_ids:
+        user_ids.extend(notification_in.user_ids)
+    
+    # Remove duplicates
+    user_ids = list(set(user_ids))
+    
+    # Create notifications for all target users
+    notifications = []
+    for user_id in user_ids:
+        notification = models.Notification(
+            user_id=user_id,
+            title=notification_in.title,
+            body=notification_in.body,
+            payload=notification_in.payload,
+        )
+        session.add(notification)
+        notifications.append(notification)
+    
+    await session.commit()
+    for notification in notifications:
+        await session.refresh(notification)
+    
+    return notifications
+
+
+async def list_notifications_for_user(
+    session: AsyncSession, user_id: str
+) -> List[models.Notification]:
+    result = await session.execute(
+        select(models.Notification)
+        .where(models.Notification.user_id == user_id)
+        .order_by(models.Notification.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def get_notification(
+    session: AsyncSession, notification_id: str
+) -> Optional[models.Notification]:
+    result = await session.execute(
+        select(models.Notification)
+        .where(models.Notification.id == notification_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def update_notification(
+    session: AsyncSession,
+    notification: models.Notification,
+    notification_in: NotificationUpdate,
+) -> models.Notification:
+    update_data = notification_in.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(notification, field, value)
+
+    await session.commit()
+    await session.refresh(notification)
+    return notification

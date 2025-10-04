@@ -10,6 +10,7 @@ from app.api.v1 import (
     logbook_entries,
     credits,
     reports,
+    notifications,
 )
 from app.core.config import settings
 
@@ -33,6 +34,7 @@ def create_application() -> FastAPI:
     app.include_router(logbook_entries.router, prefix=settings.API_V1_PREFIX)
     app.include_router(credits.router, prefix=settings.API_V1_PREFIX)
     app.include_router(reports.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(notifications.router, prefix=settings.API_V1_PREFIX)
 
     @app.get("/health", tags=["health"])
     async def health_check():
