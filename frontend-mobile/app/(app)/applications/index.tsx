@@ -255,18 +255,22 @@ export default function ApplicationsScreen() {
 
   // Determine overall status for applications
   const getOverallStatus = (industryStatus: string, facultyStatus: string, viewRole: string): string => {
-    // Faculty view: show faculty_status directly
-    if (viewRole === 'FACULTY') {
-      return facultyStatus; // PENDING, APPROVED, or REJECTED
+    // REJECTION TAKES PRIORITY: If either party rejects, show REJECTED for everyone
+    if (industryStatus === 'REJECTED' || facultyStatus === 'REJECTED') {
+      return 'REJECTED';
     }
     
-    // Industry view: show industry_status directly
+    // Faculty view: show faculty_status directly (unless rejected above)
+    if (viewRole === 'FACULTY') {
+      return facultyStatus; // PENDING or APPROVED
+    }
+    
+    // Industry view: show industry_status directly (unless rejected above)
     if (viewRole === 'INDUSTRY') {
-      return industryStatus; // PENDING, APPROVED, or REJECTED
+      return industryStatus; // PENDING or APPROVED
     }
     
     // Student view: combined status for overall progress
-    if (industryStatus === 'REJECTED' || facultyStatus === 'REJECTED') return 'REJECTED';
     if (industryStatus === 'APPROVED' && facultyStatus === 'APPROVED') return 'APPROVED';
     if (industryStatus === 'APPROVED' || facultyStatus === 'APPROVED') return 'INTERVIEWING';
     return 'PENDING';

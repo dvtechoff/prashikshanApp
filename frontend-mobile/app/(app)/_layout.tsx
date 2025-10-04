@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { useCurrentUserQuery } from '@/hooks/useCurrentUser';
+import { UI_CONFIG } from '@/config/ui';
 
 const iconNameMap: Record<
   string,
@@ -125,7 +126,12 @@ export default function AppLayout() {
           name={name}
           options={{
             title: tabOptions[name]?.title ?? name,
-            href: undefined
+            href: undefined,
+            // Show header for dashboard with "Home" title
+            ...(name === 'dashboard' && {
+              headerShown: UI_CONFIG.SHOW_HEADERS,
+              headerTitle: 'Home'
+            })
           }}
         />
       ))}
