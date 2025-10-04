@@ -12,6 +12,7 @@ import {
   TextInput,
   View
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useLoginMutation } from '@/hooks/useAuth';
 import { getErrorMessage } from '@/utils/error';
@@ -28,6 +29,7 @@ const initialState: LoginFormState = {
 
 export default function LoginScreen() {
   const [formState, setFormState] = useState<LoginFormState>(initialState);
+  const [showPassword, setShowPassword] = useState(false);
   const loginMutation = useLoginMutation();
 
   const handleChange = (key: keyof LoginFormState, value: string) => {
@@ -83,16 +85,28 @@ export default function LoginScreen() {
               </Pressable>
             </Link>
           </View>
-          <TextInput
-            value={formState.password}
-            onChangeText={(value: string) => handleChange('password', value)}
-            placeholder="••••••••"
-            placeholderTextColor="#94a3b8"
-            style={styles.input}
-            secureTextEntry
-            textContentType="password"
-            autoComplete="password"
-          />
+          <View style={styles.passwordInputContainer}>
+            <TextInput
+              value={formState.password}
+              onChangeText={(value: string) => handleChange('password', value)}
+              placeholder="••••••••"
+              placeholderTextColor="#94a3b8"
+              style={styles.passwordInput}
+              secureTextEntry={!showPassword}
+              textContentType="password"
+              autoComplete="password"
+            />
+            <Pressable 
+              onPress={() => setShowPassword(!showPassword)}
+              style={styles.eyeIcon}
+            >
+              <Ionicons 
+                name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
+                size={24} 
+                color="#64748b" 
+              />
+            </Pressable>
+          </View>
         </View>
 
         <Pressable
@@ -174,6 +188,24 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 16,
     color: '#0f172a'
+  },
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+    borderRadius: 12,
+    paddingRight: 12
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#0f172a'
+  },
+  eyeIcon: {
+    padding: 4
   },
   button: {
     marginTop: 16,

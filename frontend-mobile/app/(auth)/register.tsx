@@ -12,6 +12,7 @@ import {
   TextInput,
   View
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useRegisterMutation } from '@/hooks/useAuth';
 import type { RegisterRequest, UserRole, StudentProfileData, FacultyProfileData, IndustryProfileData } from '@/types/api';
@@ -80,6 +81,8 @@ const roleOptions: Array<{ label: string; value: UserRole; icon: string }> = [
 
 export default function RegisterScreen() {
   const [formState, setFormState] = useState<RegisterFormState>(initialState);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const registerMutation = useRegisterMutation();
 
   const passwordsMatch = formState.password === formState.confirmPassword;
@@ -243,28 +246,52 @@ export default function RegisterScreen() {
           <View style={styles.rowGroup}>
             <View style={[styles.inputGroup, styles.halfWidth]}>
               <Text style={styles.label}>Password *</Text>
-              <TextInput
-                value={formState.password}
-                onChangeText={(value) => handleChange('password', value)}
-                placeholder="Min. 8 characters"
-                placeholderTextColor="#94a3b8"
-                style={styles.input}
-                secureTextEntry
-                textContentType="newPassword"
-                autoComplete="password-new"
-              />
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  value={formState.password}
+                  onChangeText={(value) => handleChange('password', value)}
+                  placeholder="Min. 8 characters"
+                  placeholderTextColor="#94a3b8"
+                  style={styles.passwordInput}
+                  secureTextEntry={!showPassword}
+                  textContentType="newPassword"
+                  autoComplete="password-new"
+                />
+                <Pressable 
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeIcon}
+                >
+                  <Ionicons 
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'} 
+                    size={20} 
+                    color="#64748b" 
+                  />
+                </Pressable>
+              </View>
             </View>
             <View style={[styles.inputGroup, styles.halfWidth]}>
               <Text style={styles.label}>Confirm *</Text>
-              <TextInput
-                value={formState.confirmPassword}
-                onChangeText={(value) => handleChange('confirmPassword', value)}
-                placeholder="Re-enter"
-                placeholderTextColor="#94a3b8"
-                style={styles.input}
-                secureTextEntry
-                textContentType="password"
-              />
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  value={formState.confirmPassword}
+                  onChangeText={(value) => handleChange('confirmPassword', value)}
+                  placeholder="Re-enter"
+                  placeholderTextColor="#94a3b8"
+                  style={styles.passwordInput}
+                  secureTextEntry={!showConfirmPassword}
+                  textContentType="password"
+                />
+                <Pressable 
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={styles.eyeIcon}
+                >
+                  <Ionicons 
+                    name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'} 
+                    size={20} 
+                    color="#64748b" 
+                  />
+                </Pressable>
+              </View>
             </View>
           </View>
 
@@ -608,6 +635,25 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 15,
     color: '#0f172a'
+  },
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingRight: 8
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: '#0f172a'
+  },
+  eyeIcon: {
+    padding: 4
   },
   rowGroup: {
     flexDirection: 'row',

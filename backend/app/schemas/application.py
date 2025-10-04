@@ -11,6 +11,22 @@ class ApplicationDecision(str, Enum):
     REJECTED = "REJECTED"
 
 
+# Minimal nested schemas for student and internship info
+class StudentInfo(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: str
+    name: str
+    email: str
+
+
+class InternshipInfo(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: str
+    title: str
+
+
 class ApplicationBase(BaseModel):
     internship_id: str = Field(..., description="Internship to apply for")
     resume_snapshot_url: Optional[str] = Field(default=None, max_length=512)
@@ -36,3 +52,7 @@ class ApplicationRead(BaseModel):
     industry_status: ApplicationDecision
     faculty_status: ApplicationDecision
     resume_snapshot_url: Optional[str]
+    
+    # Nested relations
+    student: Optional[StudentInfo] = None
+    internship: Optional[InternshipInfo] = None

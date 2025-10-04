@@ -27,6 +27,7 @@ export default function ApplicationDetailScreen() {
 
   const role = currentUser?.role ?? 'STUDENT';
   const isFaculty = role === 'FACULTY';
+  const isIndustry = role === 'INDUSTRY';
   
   // Check if the current user has already made a decision
   const hasAlreadyDecided = isFaculty 
@@ -83,14 +84,37 @@ export default function ApplicationDetailScreen() {
           <Text style={styles.label}>Applied on</Text>
           <Text style={styles.value}>{new Date(application.applied_at).toLocaleDateString()}</Text>
         </View>
-        <View style={styles.rowBetween}>
-          <Text style={styles.label}>Industry status</Text>
-          <Text style={styles.badge}>{application.industry_status}</Text>
-        </View>
-        <View style={styles.rowBetween}>
-          <Text style={styles.label}>Faculty status</Text>
-          <Text style={styles.badge}>{application.faculty_status}</Text>
-        </View>
+        {/* Show different status information based on role */}
+        {isFaculty && (
+          <>
+            <View style={styles.rowBetween}>
+              <Text style={styles.label}>Faculty status</Text>
+              <Text style={styles.badge}>{application.faculty_status}</Text>
+            </View>
+            <View style={styles.rowBetween}>
+              <Text style={styles.label}>Industry status</Text>
+              <Text style={styles.badge}>{application.industry_status}</Text>
+            </View>
+          </>
+        )}
+        {isIndustry && (
+          <View style={styles.rowBetween}>
+            <Text style={styles.label}>Status</Text>
+            <Text style={styles.badge}>{application.industry_status}</Text>
+          </View>
+        )}
+        {!isFaculty && !isIndustry && (
+          <>
+            <View style={styles.rowBetween}>
+              <Text style={styles.label}>Industry status</Text>
+              <Text style={styles.badge}>{application.industry_status}</Text>
+            </View>
+            <View style={styles.rowBetween}>
+              <Text style={styles.label}>Faculty status</Text>
+              <Text style={styles.badge}>{application.faculty_status}</Text>
+            </View>
+          </>
+        )}
       </View>
 
       {internship && (

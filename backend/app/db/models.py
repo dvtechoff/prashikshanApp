@@ -140,6 +140,11 @@ class Application(Base):
     industry_status: Mapped[str] = mapped_column(sa.String(50), default="PENDING", nullable=False)
     faculty_status: Mapped[str] = mapped_column(sa.String(50), default="PENDING", nullable=False)
     resume_snapshot_url: Mapped[Optional[str]] = mapped_column(sa.String(512))
+    
+    # Relationships
+    student: Mapped["User"] = sa.orm.relationship("User", foreign_keys=[student_id])
+    internship: Mapped["Internship"] = sa.orm.relationship("Internship", foreign_keys=[internship_id])
+
 
 
 class LogbookEntry(Base):

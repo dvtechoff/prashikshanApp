@@ -3,6 +3,7 @@ from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.security import get_password_hash
 from app.db import models
@@ -16,12 +17,21 @@ from app.schemas.report import ReportCreate, ReportUpdate
 
 
 async def get_user_by_email(session: AsyncSession, email: str) -> Optional[models.User]:
-    result = await session.execute(select(models.User).where(models.User.email == email))
+    result = await session.execute(
+        select(models.User)
+        .where(models.User.email == email)
+        .options(selectinload(models.User.profile), selectinload(models.User.industry_profile))
+    )
     return result.scalars().first()
 
 
 async def get_user_by_id(session: AsyncSession, user_id: str) -> Optional[models.User]:
-    return await session.get(models.User, user_id)
+    result = await session.execute(
+        select(models.User)
+        .where(models.User.id == user_id)
+        .options(selectinload(models.User.profile), selectinload(models.User.industry_profile))
+    )
+    return result.scalars().first()
 
 
 async def create_user(session: AsyncSession, user_in: UserCreate) -> models.User:
@@ -83,6 +93,9 @@ async def create_user(session: AsyncSession, user_in: UserCreate) -> models.User
     except IntegrityError:
         await session.rollback()
         raise
+    
+    # Refresh user with relationships loaded
+    await session.refresh(user, attribute_names=['profile', 'industry_profile'])
     
     return user
 
@@ -185,6 +198,11 @@ async def update_internship(
     return internship
 
 
+async def delete_internship(session: AsyncSession, internship: models.Internship) -> None:
+    await session.delete(internship)
+    await session.commit()
+
+
 async def get_application_by_student_and_internship(
     session: AsyncSession, internship_id: str, student_id: str
 ) -> Optional[models.Application]:
@@ -206,12 +224,20 @@ async def create_application(
     )
     session.add(application)
     await session.commit()
-    await session.refresh(application)
+    await session.refresh(application, ['student', 'internship'])
     return application
 
 
 async def get_application(session: AsyncSession, application_id: str) -> Optional[models.Application]:
-    return await session.get(models.Application, application_id)
+    result = await session.execute(
+        select(models.Application)
+        .options(
+            selectinload(models.Application.student),
+            selectinload(models.Application.internship)
+        )
+        .where(models.Application.id == application_id)
+    )
+    return result.scalar_one_or_none()
 
 
 async def list_applications_for_student(
@@ -219,6 +245,10 @@ async def list_applications_for_student(
 ) -> List[models.Application]:
     result = await session.execute(
         select(models.Application)
+        .options(
+            selectinload(models.Application.student),
+            selectinload(models.Application.internship)
+        )
         .where(models.Application.student_id == student_id)
         .order_by(models.Application.applied_at.desc())
     )
@@ -230,6 +260,10 @@ async def list_applications_for_industry(
 ) -> List[models.Application]:
     result = await session.execute(
         select(models.Application)
+        .options(
+            selectinload(models.Application.student),
+            selectinload(models.Application.internship)
+        )
         .join(models.Internship, models.Application.internship_id == models.Internship.id)
         .where(models.Internship.posted_by == industry_user_id)
         .order_by(models.Application.applied_at.desc())
@@ -242,7 +276,10 @@ async def list_applications(
     *,
     internship_id: Optional[str] = None,
 ) -> List[models.Application]:
-    query = select(models.Application).order_by(models.Application.applied_at.desc())
+    query = select(models.Application).options(
+        selectinload(models.Application.student),
+        selectinload(models.Application.internship)
+    ).order_by(models.Application.applied_at.desc())
     if internship_id:
         query = query.where(models.Application.internship_id == internship_id)
     result = await session.execute(query)
@@ -259,7 +296,7 @@ async def update_application(
         setattr(application, field, value)
 
     await session.commit()
-    await session.refresh(application)
+    await session.refresh(application, ['student', 'internship'])
     return application
 
 

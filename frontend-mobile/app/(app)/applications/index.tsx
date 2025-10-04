@@ -1,22 +1,25 @@
 import { useMemo, useState } from 'react';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import {
   ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
-  Image
+  Image,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useApplicationList } from '@/hooks/useApplications';
+import { useApplicationList, useUpdateApplication } from '@/hooks/useApplications';
 import { useCurrentUserQuery } from '@/hooks/useCurrentUser';
 import { useInternshipList } from '@/hooks/useInternships';
 import type { ApplicationSummary } from '@/types/api';
+import { getErrorMessage } from '@/utils/error';
 
 type TabType = 'ACTIVE' | 'PAST';
 type StatusFilterType = 'all' | 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -49,7 +52,7 @@ const getAvatarBackground = (name: string): string => {
   return colors[index];
 };
 
-// Faculty Application Card - shows student info
+// Faculty/Industry Application Card - shows student info
 const FacultyApplicationCard = ({
   studentName,
   internshipTitle,
@@ -57,6 +60,7 @@ const FacultyApplicationCard = ({
   appliedAt,
   status,
   industryStatus,
+  secondaryLabel = 'Industry',
   onPress
 }: {
   studentName: string;
@@ -65,6 +69,7 @@ const FacultyApplicationCard = ({
   appliedAt: string;
   status: string;
   industryStatus: string;
+  secondaryLabel?: string;
   onPress: () => void;
 }) => {
   const statusInfo = statusConfig[status as keyof typeof statusConfig] || statusConfig.PENDING;
@@ -90,15 +95,15 @@ const FacultyApplicationCard = ({
           <Text style={styles.appliedDate}>
             Applied: {new Date(appliedAt).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })}
           </Text>
-          {/* Industry Status Indicator (small) */}
+          {/* Secondary Status Indicator (small) - Shows Industry status for Faculty, Faculty status for Industry */}
           {industryStatus !== 'PENDING' && (
             <Text style={styles.industryStatusHint}>
-              Industry: {industryStatus === 'APPROVED' ? '✓ Approved' : industryStatus === 'REJECTED' ? '✗ Rejected' : 'Pending'}
+              {secondaryLabel}: {industryStatus === 'APPROVED' ? '✓ Approved' : industryStatus === 'REJECTED' ? '✗ Rejected' : 'Pending'}
             </Text>
           )}
         </View>
 
-        {/* Status Badge - Faculty Status */}
+        {/* Status Badge - Primary Status (Faculty/Industry depending on role) */}
         <View style={[styles.statusBadge, { backgroundColor: statusInfo.background }]}>
           <Text style={[styles.statusText, { color: statusInfo.color }]}>{statusInfo.label}</Text>
         </View>
@@ -110,6 +115,79 @@ const FacultyApplicationCard = ({
         <Ionicons name="arrow-forward" size={16} color="#2563eb" />
       </Pressable>
     </View>
+  );
+};
+
+// Industry Application Card - shows student info with inline approve/reject buttons
+const IndustryApplicationCard = ({
+  studentName,
+  major,
+  status,
+  applicationId,
+  onApprove,
+  onReject,
+  onPress
+}: {
+  studentName: string;
+  major: string;
+  status: string;
+  applicationId: string;
+  onApprove: () => void;
+  onReject: () => void;
+  onPress: () => void;
+}) => {
+  const initials = getStudentInitials(studentName);
+  const avatarBackground = getAvatarBackground(studentName);
+  const isPending = status === 'PENDING';
+
+  return (
+    <Pressable style={styles.industryCard} onPress={onPress}>
+      <View style={styles.industryCardContent}>
+        {/* Student Avatar */}
+        <View style={[styles.industryAvatar, { backgroundColor: avatarBackground }]}>
+          <Text style={styles.industryAvatarText}>{initials}</Text>
+        </View>
+
+        <View style={styles.industryCardInfo}>
+          {/* Student Name */}
+          <Text style={styles.industryStudentName} numberOfLines={1}>{studentName}</Text>
+          {/* Major/Department */}
+          <Text style={styles.industryMajor} numberOfLines={1}>{major}</Text>
+        </View>
+
+        {/* Action Buttons */}
+        {isPending ? (
+          <View style={styles.industryActions}>
+            <Pressable 
+              style={styles.rejectButtonSmall} 
+              onPress={(e) => {
+                e.stopPropagation();
+                onReject();
+              }}
+            >
+              <Ionicons name="close" size={20} color="#dc2626" />
+            </Pressable>
+            <Pressable 
+              style={styles.approveButtonSmall}
+              onPress={(e) => {
+                e.stopPropagation();
+                onApprove();
+              }}
+            >
+              <Ionicons name="checkmark" size={20} color="#16a34a" />
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.industryStatusIcon}>
+            {status === 'APPROVED' ? (
+              <Ionicons name="checkmark-circle" size={28} color="#16a34a" />
+            ) : (
+              <Ionicons name="close-circle" size={28} color="#dc2626" />
+            )}
+          </View>
+        )}
+      </View>
+    </Pressable>
   );
 };
 
@@ -151,15 +229,19 @@ const ApplicationCard = ({
 };
 
 export default function ApplicationsScreen() {
+  const { internshipId, internshipTitle } = useLocalSearchParams<{ internshipId?: string; internshipTitle?: string }>();
   const { data: currentUser } = useCurrentUserQuery();
   const { data, isLoading, isRefetching, refetch } = useApplicationList();
   const { data: internships } = useInternshipList();
+  const updateMutation = useUpdateApplication();
   const [activeTab, setActiveTab] = useState<TabType>('ACTIVE');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilterType>('all');
 
   const role = currentUser?.role ?? 'STUDENT';
   const isFaculty = role === 'FACULTY';
+  const isIndustry = role === 'INDUSTRY';
+  const isApprover = isFaculty || isIndustry; // Both faculty and industry can approve/reject
 
   const internshipTitleMap = useMemo(() => {
     if (!internships) {
@@ -175,11 +257,15 @@ export default function ApplicationsScreen() {
   const getOverallStatus = (industryStatus: string, facultyStatus: string, viewRole: string): string => {
     // Faculty view: show faculty_status directly
     if (viewRole === 'FACULTY') {
-      // Return the actual faculty status
       return facultyStatus; // PENDING, APPROVED, or REJECTED
     }
     
-    // Student/Industry view: combined status for overall progress
+    // Industry view: show industry_status directly
+    if (viewRole === 'INDUSTRY') {
+      return industryStatus; // PENDING, APPROVED, or REJECTED
+    }
+    
+    // Student view: combined status for overall progress
     if (industryStatus === 'REJECTED' || facultyStatus === 'REJECTED') return 'REJECTED';
     if (industryStatus === 'APPROVED' && facultyStatus === 'APPROVED') return 'APPROVED';
     if (industryStatus === 'APPROVED' || facultyStatus === 'APPROVED') return 'INTERVIEWING';
@@ -194,14 +280,28 @@ export default function ApplicationsScreen() {
     let filtered = data.filter((app) => {
       const overallStatus = getOverallStatus(app.industry_status, app.faculty_status, role);
       
+      // INDUSTRY: Only show applications that have been APPROVED by faculty
+      if (isIndustry) {
+        const facultyApproved = app.faculty_status === 'APPROVED';
+        const industryRejected = app.industry_status === 'REJECTED';
+        if (!facultyApproved && !industryRejected) {
+          return false;
+        }
+      }
+      
+      // Filter by specific internship if provided
+      if (internshipId && app.internship_id !== internshipId) {
+        return false;
+      }
+      
       // Tab filtering (only for students)
-      if (!isFaculty && activeTab === 'ACTIVE') {
+      if (!isApprover && activeTab === 'ACTIVE') {
         return overallStatus !== 'REJECTED' && overallStatus !== 'APPROVED';
-      } else if (!isFaculty && activeTab === 'PAST') {
+      } else if (!isApprover && activeTab === 'PAST') {
         return overallStatus === 'REJECTED' || overallStatus === 'APPROVED';
       }
       
-      // Faculty sees all applications (no tab filtering)
+      // Faculty/Industry sees all applications (no tab filtering)
       return true;
     });
 
@@ -210,7 +310,7 @@ export default function ApplicationsScreen() {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((app) => {
         const internshipTitle = internshipTitleMap[app.internship_id]?.toLowerCase() || '';
-        // For faculty, would also search student names here
+        // For faculty/industry, would also search student names here
         return internshipTitle.includes(query);
       });
     }
@@ -224,7 +324,43 @@ export default function ApplicationsScreen() {
     }
 
     return filtered;
-  }, [data, activeTab, searchQuery, statusFilter, internshipTitleMap, role, isFaculty]);
+  }, [data, activeTab, searchQuery, statusFilter, internshipTitleMap, role, isApprover, internshipId, isIndustry]);
+
+  // Grouped applications for Industry (Shortlisted, Approved, and Rejected sections)
+  const groupedApplications = useMemo(() => {
+    if (!isIndustry) return null;
+    
+    const shortlisted = filteredApplications.filter(app => app.industry_status === 'PENDING');
+    const approved = filteredApplications.filter(app => app.industry_status === 'APPROVED');
+    const rejected = filteredApplications.filter(app => app.industry_status === 'REJECTED');
+    
+    return { shortlisted, approved, rejected };
+  }, [filteredApplications, isIndustry]);
+
+  // Handler functions for Industry approve/reject
+  const handleApprove = async (applicationId: string) => {
+    try {
+      await updateMutation.mutateAsync({
+        id: applicationId,
+        payload: { industry_status: 'APPROVED' }
+      });
+      refetch();
+    } catch (err) {
+      Alert.alert('Update failed', getErrorMessage(err));
+    }
+  };
+
+  const handleReject = async (applicationId: string) => {
+    try {
+      await updateMutation.mutateAsync({
+        id: applicationId,
+        payload: { industry_status: 'REJECTED' }
+      });
+      refetch();
+    } catch (err) {
+      Alert.alert('Update failed', getErrorMessage(err));
+    }
+  };
 
   if (isLoading) {
     return (
@@ -237,19 +373,39 @@ export default function ApplicationsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Faculty: Header with title and notification icon */}
-      {isFaculty && (
+      {/* Faculty/Industry: Header with title and notification icon */}
+      {isApprover && (
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#0f172a" />
           </Pressable>
-          <Text style={styles.headerTitle}>Internship Applications</Text>
+          <Text style={styles.headerTitle}>
+            {isFaculty ? 'Internship Applications' : 'Student Applications'}
+          </Text>
           <View style={{ width: 40 }} />
         </View>
       )}
 
-      {/* Faculty: Search Bar */}
-      {isFaculty && (
+      {/* Internship Filter Indicator */}
+      {internshipId && internshipTitle && (
+        <View style={styles.filterIndicator}>
+          <View style={styles.filterIndicatorContent}>
+            <Ionicons name="funnel" size={16} color="#2563eb" />
+            <Text style={styles.filterIndicatorText}>
+              Showing applications for: <Text style={styles.filterIndicatorBold}>{internshipTitle}</Text>
+            </Text>
+          </View>
+          <Pressable
+            style={styles.clearFilterButton}
+            onPress={() => router.push('/(app)/applications')}
+          >
+            <Ionicons name="close-circle" size={20} color="#64748b" />
+          </Pressable>
+        </View>
+      )}
+
+      {/* Faculty/Industry: Search Bar */}
+      {isApprover && (
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#94a3b8" style={styles.searchIcon} />
           <TextInput
@@ -262,8 +418,8 @@ export default function ApplicationsScreen() {
         </View>
       )}
 
-      {/* Faculty: Filter Chips */}
-      {isFaculty && (
+      {/* Faculty/Industry: Filter Chips */}
+      {isApprover && (
         <View style={styles.filterContainer}>
           <Pressable
             style={[styles.filterChip, statusFilter === 'all' && styles.filterChipActive]}
@@ -304,7 +460,7 @@ export default function ApplicationsScreen() {
       )}
 
       {/* Student: Tabs */}
-      {!isFaculty && (
+      {!isApprover && (
         <View style={styles.tabContainer}>
           <Pressable
             style={[styles.tab, activeTab === 'ACTIVE' && styles.tabActive]}
@@ -328,62 +484,151 @@ export default function ApplicationsScreen() {
       )}
 
       {/* Applications List */}
-      <FlatList
-        data={filteredApplications}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>
-              {isFaculty 
-                ? 'No applications found'
-                : (activeTab === 'ACTIVE' ? 'No active applications' : 'No past applications')}
-            </Text>
-            <Text style={styles.emptyDescription}>
-              {isFaculty
-                ? 'Applications will appear here when students apply'
-                : (activeTab === 'ACTIVE'
-                  ? 'Apply to internships to see them here'
-                  : 'Completed applications will appear here')}
-            </Text>
-          </View>
-        }
-        refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor="#2563eb" />
-        }
-        renderItem={({ item }) => {
-          const overallStatus = getOverallStatus(item.industry_status, item.faculty_status, role);
-          
-          if (isFaculty) {
-            // Faculty view - show student cards (mock data for now, need student names from backend)
-            return (
-              <FacultyApplicationCard
-                studentName={`Student ${item.student_id.substring(0, 6)}`}
-                internshipTitle={internshipTitleMap[item.internship_id] || 'Internship'}
-                companyName="Tech Solutions Inc"
-                appliedAt={item.applied_at}
-                status={overallStatus}
-                industryStatus={item.industry_status}
-                onPress={() =>
-                  router.push({ pathname: '/(app)/applications/[id]', params: { id: item.id } } as never)
-                }
-              />
-            );
-          } else {
-            // Student view - show internship cards
-            return (
-              <ApplicationCard
-                internshipTitle={internshipTitleMap[item.internship_id] || 'Internship'}
-                appliedAt={item.applied_at}
-                status={overallStatus}
-                onPress={() =>
-                  router.push({ pathname: '/(app)/applications/[id]', params: { id: item.id } } as never)
-                }
-              />
-            );
+      {isIndustry ? (
+        /* Industry: Grouped sections with ScrollView */
+        <ScrollView
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor="#2563eb" />
           }
-        }}
-      />
+        >
+          {/* Shortlisted Students Section */}
+          {groupedApplications && groupedApplications.shortlisted.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionHeaderText}>Shortlisted Students</Text>
+              {groupedApplications.shortlisted.map((item) => (
+                <IndustryApplicationCard
+                  key={item.id}
+                  studentName={item.student?.name || `Student ${item.student_id.substring(0, 6)}`}
+                  major={item.internship?.title || internshipTitleMap[item.internship_id] || 'Internship'}
+                  status={item.industry_status}
+                  applicationId={item.id}
+                  onApprove={() => handleApprove(item.id)}
+                  onReject={() => handleReject(item.id)}
+                  onPress={() =>
+                    router.push({ pathname: '/(app)/applications/[id]', params: { id: item.id } } as never)
+                  }
+                />
+              ))}
+            </View>
+          )}
+
+          {/* Approved Students Section */}
+          {groupedApplications && groupedApplications.approved.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionHeaderText}>Approved Students</Text>
+              {groupedApplications.approved.map((item) => (
+                <IndustryApplicationCard
+                  key={item.id}
+                  studentName={item.student?.name || `Student ${item.student_id.substring(0, 6)}`}
+                  major={item.internship?.title || internshipTitleMap[item.internship_id] || 'Internship'}
+                  status={item.industry_status}
+                  applicationId={item.id}
+                  onApprove={() => handleApprove(item.id)}
+                  onReject={() => handleReject(item.id)}
+                  onPress={() =>
+                    router.push({ pathname: '/(app)/applications/[id]', params: { id: item.id } } as never)
+                  }
+                />
+              ))}
+            </View>
+          )}
+
+          {/* Rejected Students Section */}
+          {groupedApplications && groupedApplications.rejected.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionHeaderText}>Rejected Students</Text>
+              {groupedApplications.rejected.map((item) => (
+                <IndustryApplicationCard
+                  key={item.id}
+                  studentName={item.student?.name || `Student ${item.student_id.substring(0, 6)}`}
+                  major={item.internship?.title || internshipTitleMap[item.internship_id] || 'Internship'}
+                  status={item.industry_status}
+                  applicationId={item.id}
+                  onApprove={() => handleApprove(item.id)}
+                  onReject={() => handleReject(item.id)}
+                  onPress={() =>
+                    router.push({ pathname: '/(app)/applications/[id]', params: { id: item.id } } as never)
+                  }
+                />
+              ))}
+            </View>
+          )}
+
+          {/* Empty State */}
+          {(!groupedApplications || 
+            (groupedApplications.shortlisted.length === 0 && 
+             groupedApplications.approved.length === 0 && 
+             groupedApplications.rejected.length === 0)) && (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>No applications found</Text>
+              <Text style={styles.emptyDescription}>Applications will appear here when students apply</Text>
+            </View>
+          )}
+        </ScrollView>
+      ) : (
+        /* Faculty/Student: FlatList */
+        <FlatList
+          data={filteredApplications}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>
+                {isApprover 
+                  ? 'No applications found'
+                  : (activeTab === 'ACTIVE' ? 'No active applications' : 'No past applications')}
+              </Text>
+              <Text style={styles.emptyDescription}>
+                {isApprover
+                  ? 'Applications will appear here when students apply'
+                  : (activeTab === 'ACTIVE'
+                    ? 'Apply to internships to see them here'
+                    : 'Completed applications will appear here')}
+              </Text>
+            </View>
+          }
+          refreshControl={
+            <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor="#2563eb" />
+          }
+          renderItem={({ item }) => {
+            const overallStatus = getOverallStatus(item.industry_status, item.faculty_status, role);
+            
+            if (isFaculty) {
+              // Faculty view - show detailed student cards
+              const secondaryStatus = item.industry_status;
+              const secondaryLabel = 'Industry';
+              
+              return (
+                <FacultyApplicationCard
+                  studentName={`Student ${item.student_id.substring(0, 6)}`}
+                  internshipTitle={internshipTitleMap[item.internship_id] || 'Internship'}
+                  companyName="Tech Solutions Inc"
+                  appliedAt={item.applied_at}
+                  status={overallStatus}
+                  industryStatus={secondaryStatus}
+                  secondaryLabel={secondaryLabel}
+                  onPress={() =>
+                    router.push({ pathname: '/(app)/applications/[id]', params: { id: item.id } } as never)
+                  }
+                />
+              );
+            } else {
+              // Student view - show internship cards
+              return (
+                <ApplicationCard
+                  internshipTitle={internshipTitleMap[item.internship_id] || 'Internship'}
+                  appliedAt={item.applied_at}
+                  status={overallStatus}
+                  onPress={() =>
+                    router.push({ pathname: '/(app)/applications/[id]', params: { id: item.id } } as never)
+                  }
+                />
+              );
+            }
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -392,6 +637,35 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#ffffff'
+  },
+  filterIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#bfdbfe',
+    gap: 12
+  },
+  filterIndicatorContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
+  filterIndicatorText: {
+    fontSize: 14,
+    color: '#475569',
+    flex: 1
+  },
+  filterIndicatorBold: {
+    fontWeight: '700',
+    color: '#1e40af'
+  },
+  clearFilterButton: {
+    padding: 4
   },
   tabContainer: {
     flexDirection: 'row',
@@ -638,5 +912,83 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#2563eb'
+  },
+  // Industry-specific card styles
+  industryCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1
+  },
+  industryCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
+  },
+  industryAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  industryAvatarText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a'
+  },
+  industryCardInfo: {
+    flex: 1,
+    gap: 4
+  },
+  industryStudentName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0f172a'
+  },
+  industryMajor: {
+    fontSize: 13,
+    color: '#64748b'
+  },
+  industryActions: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  rejectButtonSmall: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fee2e2',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  approveButtonSmall: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#dcfce7',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  industryStatusIcon: {
+    marginLeft: 8
+  },
+  // Section styles for Industry grouped view
+  section: {
+    marginBottom: 24
+  },
+  sectionHeaderText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 12,
+    paddingHorizontal: 4
   }
 });

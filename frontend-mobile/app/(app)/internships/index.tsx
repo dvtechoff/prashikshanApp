@@ -53,6 +53,7 @@ export default function InternshipListScreen() {
   const { data: applications } = useApplicationList();
 
   const isIndustry = user?.role === 'INDUSTRY';
+  const isStudent = user?.role === 'STUDENT';
 
   // Create a set of internship IDs that the user has already applied to
   const appliedInternshipIds = useMemo(() => {
@@ -60,8 +61,27 @@ export default function InternshipListScreen() {
     return new Set(applications.map(app => app.internship_id));
   }, [applications]);
 
-  const renderItem = ({ item }: { item: (typeof internships)[number] }) => {
+  // Filter out CLOSED and ARCHIVED internships for students (but industry sees all)
+  const visibleInternships = useMemo(() => {
+    if (isIndustry) {
+      // Industry users see all their internships regardless of status
+      return internships;
+    }
+    if (isStudent) {
+      // Students only see OPEN internships
+      return internships.filter(internship => internship.status === 'OPEN');
+    }
+    // Faculty and other roles see all
+    return internships;
+  }, [internships, isIndustry, isStudent]);
+
+  const renderItem = ({ item }: { item: (typeof visibleInternships)[number] }) => {
     const hasApplied = appliedInternshipIds.has(item.id);
+    
+    // For industry users, count applications to their internships
+    const applicationCount = isIndustry 
+      ? applications?.filter(app => app.internship_id === item.id).length || 0
+      : 0;
     
     return (
       <Pressable
@@ -73,7 +93,20 @@ export default function InternshipListScreen() {
           <Text style={styles.title}>{item.title}</Text>
           <View style={styles.badges}>
             {item.remote && <Text style={styles.remoteBadge}>Remote</Text>}
-            {hasApplied && <Text style={styles.appliedBadge}>Applied</Text>}
+            {!isIndustry && hasApplied && <Text style={styles.appliedBadge}>Applied</Text>}
+            {isIndustry && applicationCount > 0 && (
+              <Text style={styles.applicationsCountBadge}>{applicationCount} Application{applicationCount !== 1 ? 's' : ''}</Text>
+            )}
+            {isIndustry && (
+              <Text style={[
+                styles.statusBadge,
+                item.status === 'OPEN' && styles.statusBadgeOpen,
+                item.status === 'CLOSED' && styles.statusBadgeClosed,
+                item.status === 'ARCHIVED' && styles.statusBadgeArchived
+              ]}>
+                {item.status}
+              </Text>
+            )}
           </View>
         </View>
         {item.location && <Text style={styles.location}>{item.location}</Text>}
@@ -155,7 +188,7 @@ export default function InternshipListScreen() {
         </View>
       ) : (
         <FlatList
-          data={internships}
+          data={visibleInternships}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           renderItem={renderItem}
@@ -300,6 +333,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12
   },
+  applicationsCountBadge: {
+    backgroundColor: '#dcfce7',
+    color: '#15803d',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+    fontWeight: '600',
+    fontSize: 12
+  },
   location: {
     color: '#475569',
     fontSize: 14
@@ -354,5 +396,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
     textAlign: 'center'
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  statusBadgeOpen: {
+    backgroundColor: '#dcfce7',
+    color: '#15803d'
+  },
+  statusBadgeClosed: {
+    backgroundColor: '#fef3c7',
+    color: '#a16207'
+  },
+  statusBadgeArchived: {
+    backgroundColor: '#e5e7eb',
+    color: '#6b7280'
   }
 });

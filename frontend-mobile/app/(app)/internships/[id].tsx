@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,8 +10,9 @@ import {
   View
 } from 'react-native';
 
-import { useInternshipDetail } from '@/hooks/useInternships';
+import { useInternshipDetail, useUpdateInternship, useDeleteInternship } from '@/hooks/useInternships';
 import { useCurrentUserQuery } from '@/hooks/useCurrentUser';
+import { useApplicationList } from '@/hooks/useApplications';
 
 export default function InternshipDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -23,15 +25,67 @@ export default function InternshipDetailScreen() {
     isRefetching
   } = useInternshipDetail(id);
   const { data: user } = useCurrentUserQuery();
+  const { data: applications } = useApplicationList();
+  const updateInternshipMutation = useUpdateInternship();
+  const deleteInternshipMutation = useDeleteInternship();
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const role = user?.role ?? 'STUDENT';
   const canApply = role === 'STUDENT';
   const canManage = role === 'INDUSTRY';
 
+  // Count applications for this internship (for industry users)
+  const applicationCount = useMemo(() => {
+    if (!canManage || !applications) return 0;
+    return applications.filter(app => app.internship_id === id).length;
+  }, [applications, id, canManage]);
+
   const postedDate = useMemo(
     () => (data?.created_at ? new Date(data.created_at).toLocaleDateString() : null),
     [data?.created_at]
   );
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!id) return;
+    
+    setIsUpdating(true);
+    try {
+      await updateInternshipMutation.mutateAsync({
+        id,
+        payload: { status: newStatus }
+      });
+      Alert.alert('Success', `Internship status updated to ${newStatus}`);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update internship status');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Internship',
+      'Are you sure you want to delete this internship? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            if (!id) return;
+            try {
+              await deleteInternshipMutation.mutateAsync(id);
+              Alert.alert('Success', 'Internship deleted successfully', [
+                { text: 'OK', onPress: () => router.back() }
+              ]);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete internship');
+            }
+          }
+        }
+      ]
+    );
+  };
 
   if (isLoading) {
     return (
@@ -100,6 +154,78 @@ export default function InternshipDetailScreen() {
         </View>
       )}
 
+      {canManage && (
+        <>
+          {/* Show applications count */}
+          <View style={styles.industrySection}>
+            <View style={styles.applicationsSummary}>
+              <Text style={styles.applicationsLabel}>Applications Received</Text>
+              <Text style={styles.applicationsCount}>{applicationCount}</Text>
+            </View>
+          </View>
+
+          {/* Status Management Section */}
+          <View style={styles.statusManagementSection}>
+            <Text style={styles.statusManagementTitle}>Internship Status</Text>
+            <View style={styles.statusButtonsRow}>
+              <Pressable
+                style={[
+                  styles.statusButton,
+                  data.status === 'OPEN' && styles.statusButtonActive,
+                  isUpdating && styles.statusButtonDisabled
+                ]}
+                onPress={() => handleStatusChange('OPEN')}
+                disabled={isUpdating || data.status === 'OPEN'}
+              >
+                <Text style={[
+                  styles.statusButtonText,
+                  data.status === 'OPEN' && styles.statusButtonTextActive
+                ]}>
+                  {data.status === 'OPEN' ? '✓ Open' : 'Open'}
+                </Text>
+              </Pressable>
+              
+              <Pressable
+                style={[
+                  styles.statusButton,
+                  data.status === 'CLOSED' && styles.statusButtonActive,
+                  isUpdating && styles.statusButtonDisabled
+                ]}
+                onPress={() => handleStatusChange('CLOSED')}
+                disabled={isUpdating || data.status === 'CLOSED'}
+              >
+                <Text style={[
+                  styles.statusButtonText,
+                  data.status === 'CLOSED' && styles.statusButtonTextActive
+                ]}>
+                  {data.status === 'CLOSED' ? '✓ Closed' : 'Closed'}
+                </Text>
+              </Pressable>
+              
+              <Pressable
+                style={[
+                  styles.statusButton,
+                  data.status === 'ARCHIVED' && styles.statusButtonActive,
+                  isUpdating && styles.statusButtonDisabled
+                ]}
+                onPress={() => handleStatusChange('ARCHIVED')}
+                disabled={isUpdating || data.status === 'ARCHIVED'}
+              >
+                <Text style={[
+                  styles.statusButtonText,
+                  data.status === 'ARCHIVED' && styles.statusButtonTextActive
+                ]}>
+                  {data.status === 'ARCHIVED' ? '✓ Archived' : 'Archived'}
+                </Text>
+              </Pressable>
+            </View>
+            {isUpdating && (
+              <ActivityIndicator size="small" color="#2563eb" style={{ marginTop: 8 }} />
+            )}
+          </View>
+        </>
+      )}
+
       <View style={styles.actionRow}>
         {canApply && (
           <Pressable
@@ -114,17 +240,37 @@ export default function InternshipDetailScreen() {
             </Text>
           </Pressable>
         )}
-        {canManage && (
+      </View>
+      
+      {canManage && (
+        <View style={styles.industryActions}>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => router.push({
+              pathname: '/(app)/applications',
+              params: { internshipId: data.id, internshipTitle: data.title }
+            })}
+          >
+            <Text style={styles.primaryButtonText}>View Applications ({applicationCount})</Text>
+          </Pressable>
+          
           <Pressable
             style={styles.secondaryButton}
             onPress={() =>
               router.push({ pathname: '/(app)/internships/post', params: { internshipId: data.id } })
             }
           >
-            <Text style={styles.secondaryButtonText}>Update listing</Text>
+            <Text style={styles.secondaryButtonText}>Edit Listing</Text>
           </Pressable>
-        )}
-      </View>
+
+          <Pressable
+            style={styles.deleteButton}
+            onPress={handleDelete}
+          >
+            <Text style={styles.deleteButtonText}>Delete Internship</Text>
+          </Pressable>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -202,35 +348,39 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   primaryButton: {
-    flex: 1,
     backgroundColor: '#2563eb',
     paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: 'center'
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#2563eb',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3
   },
   primaryButtonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '600'
+    fontWeight: '700'
   },
   disabledButton: {
-    backgroundColor: '#cbd5f5'
+    backgroundColor: '#cbd5f5',
+    shadowOpacity: 0
   },
   actionRow: {
-    flexDirection: 'row',
     gap: 12
   },
   secondaryButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 2,
     borderColor: '#cbd5f5',
-    alignItems: 'center'
+    alignItems: 'center',
+    backgroundColor: '#ffffff'
   },
   secondaryButtonText: {
     color: '#1e293b',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600'
   },
   centered: {
@@ -255,5 +405,103 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#dc2626',
     textAlign: 'center'
+  },
+  industrySection: {
+    marginBottom: 16
+  },
+  industryActions: {
+    gap: 12
+  },
+  applicationsSummary: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
+    gap: 8
+  },
+  applicationsLabel: {
+    fontSize: 15,
+    color: '#64748b',
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  applicationsCount: {
+    fontSize: 40,
+    fontWeight: '700',
+    color: '#2563eb'
+  },
+  statusManagementSection: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
+    gap: 16
+  },
+  statusManagementTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#0f172a'
+  },
+  statusButtonsRow: {
+    flexDirection: 'row',
+    gap: 10
+  },
+  statusButton: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 56
+  },
+  statusButtonActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+    shadowColor: '#2563eb',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4
+  },
+  statusButtonDisabled: {
+    opacity: 0.6
+  },
+  statusButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#475569'
+  },
+  statusButtonTextActive: {
+    color: '#ffffff',
+    fontWeight: '700'
+  },
+  deleteButton: {
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#dc2626',
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    marginTop: 8
+  },
+  deleteButtonText: {
+    color: '#dc2626',
+    fontSize: 16,
+    fontWeight: '700'
   }
 });

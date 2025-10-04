@@ -82,3 +82,22 @@ async def update_internship(
 
     updated = await crud.update_internship(session, internship, internship_in)
     return InternshipRead.model_validate(updated)
+
+
+@router.delete("/{internship_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_internship(
+    internship_id: str,
+    session: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+) -> None:
+    internship = await crud.get_internship(session, internship_id)
+    if internship is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Internship not found")
+
+    if current_user.role not in (models.UserRole.ADMIN, models.UserRole.INDUSTRY):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+
+    if current_user.role == models.UserRole.INDUSTRY and internship.posted_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot delete another provider's posting")
+
+    await crud.delete_internship(session, internship)

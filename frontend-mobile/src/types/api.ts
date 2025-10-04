@@ -176,6 +176,16 @@ export interface ApplicationSummary {
   industry_status: ApplicationDecision;
   faculty_status: ApplicationDecision;
   resume_snapshot_url?: string | null;
+  // Nested relations
+  student?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  internship?: {
+    id: string;
+    title: string;
+  } | null;
 }
 
 export interface ApplicationDetail extends ApplicationSummary {

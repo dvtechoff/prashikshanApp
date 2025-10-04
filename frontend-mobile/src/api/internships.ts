@@ -72,3 +72,7 @@ export const updateInternship = async (
 	const { data } = await apiClient.patch<Internship>(`/api/v1/internships/${id}`, payload);
 	return data;
 };
+
+export const deleteInternship = async (id: string): Promise<void> => {
+	await apiClient.delete(`/api/v1/internships/${id}`);
+};

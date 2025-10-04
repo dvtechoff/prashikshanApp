@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { createInternship, getInternship, listInternships, updateInternship } from '@/api/internships';
+import { createInternship, deleteInternship, getInternship, listInternships, updateInternship } from '@/api/internships';
 import type {
   Internship,
   InternshipCreateRequest,
@@ -46,6 +46,16 @@ export const useUpdateInternship = () => {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['internships'] });
       queryClient.invalidateQueries({ queryKey: ['internships', variables.id] });
+    }
+  });
+};
+
+export const useDeleteInternship = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteInternship(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['internships'] });
     }
   });
 };

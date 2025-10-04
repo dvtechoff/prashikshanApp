@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { router } from 'expo-router';
 import {
   ActivityIndicator,
@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 
 import { useCreateLogbookEntry } from '@/hooks/useLogbookEntries';
+import { useApplicationList } from '@/hooks/useApplications';
+import { useInternshipList } from '@/hooks/useInternships';
 import type { LogbookAttachment } from '@/types/api';
 import { getErrorMessage } from '@/utils/error';
 
@@ -37,6 +39,22 @@ export default function NewLogbookEntryScreen() {
   const [attachmentName, setAttachmentName] = useState('');
   const [attachmentUrl, setAttachmentUrl] = useState('');
   const createEntry = useCreateLogbookEntry();
+  const { data: applications } = useApplicationList();
+  const { data: internships } = useInternshipList();
+
+  // Filter applications that are approved by both industry and faculty
+  const acceptedApplications = useMemo(() => {
+    if (!applications) return [];
+    return applications.filter(
+      app => app.industry_status === 'APPROVED' && app.faculty_status === 'APPROVED'
+    );
+  }, [applications]);
+
+  // Create a map of internship IDs to internship data for quick lookup
+  const internshipMap = useMemo(() => {
+    if (!internships) return new Map();
+    return new Map(internships.map(internship => [internship.id, internship]));
+  }, [internships]);
 
   const isValid = Boolean(
     formState.entryDate &&
@@ -126,15 +144,61 @@ export default function NewLogbookEntryScreen() {
               keyboardType="numeric"
             />
           </View>
-          <View style={[styles.fieldGroup, styles.halfWidth]}>
-            <Text style={styles.label}>Application ID</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Link to application"
-              value={formState.applicationId}
-              onChangeText={(value) => handleChange('applicationId', value)}
-            />
-          </View>
+        </View>
+
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>Select Internship</Text>
+          <Text style={styles.helperText}>Choose from your accepted internships</Text>
+          {acceptedApplications.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No accepted internships found</Text>
+              <Text style={styles.emptySubtext}>
+                You need to have an approved internship application before creating a logbook entry.
+              </Text>
+            </View>
+          ) : (
+            <ScrollView style={styles.applicationsList} nestedScrollEnabled>
+              {acceptedApplications.map((app) => {
+                const internship = internshipMap.get(app.internship_id);
+                const isSelected = formState.applicationId === app.id;
+                return (
+                  <Pressable
+                    key={app.id}
+                    style={[
+                      styles.applicationCard,
+                      isSelected && styles.applicationCardSelected
+                    ]}
+                    onPress={() => handleChange('applicationId', app.id)}
+                  >
+                    <View style={styles.radioContainer}>
+                      <View style={[
+                        styles.radioOuter,
+                        isSelected && styles.radioOuterSelected
+                      ]}>
+                        {isSelected && <View style={styles.radioInner} />}
+                      </View>
+                      <View style={styles.applicationInfo}>
+                        <Text style={[
+                          styles.applicationTitle,
+                          isSelected && styles.applicationTitleSelected
+                        ]}>
+                          {internship?.title || 'Internship'}
+                        </Text>
+                        {internship?.location && (
+                          <Text style={styles.applicationLocation}>
+                            {internship.location}
+                          </Text>
+                        )}
+                        <Text style={styles.applicationMeta}>
+                          Applied: {new Date(app.applied_at).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          )}
         </View>
 
         <View style={styles.fieldGroup}>
@@ -325,5 +389,84 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5
+  },
+  emptyState: {
+    backgroundColor: '#fef3c7',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    gap: 8
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#a16207',
+    textAlign: 'center'
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#92400e',
+    textAlign: 'center'
+  },
+  applicationsList: {
+    maxHeight: 300,
+    borderWidth: 1,
+    borderColor: '#cbd5f5',
+    borderRadius: 12,
+    backgroundColor: '#ffffff'
+  },
+  applicationCard: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0'
+  },
+  applicationCardSelected: {
+    backgroundColor: '#eff6ff',
+    borderLeftWidth: 4,
+    borderLeftColor: '#2563eb'
+  },
+  radioContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12
+  },
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2
+  },
+  radioOuterSelected: {
+    borderColor: '#2563eb'
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#2563eb'
+  },
+  applicationInfo: {
+    flex: 1,
+    gap: 4
+  },
+  applicationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0f172a'
+  },
+  applicationTitleSelected: {
+    color: '#1d4ed8'
+  },
+  applicationLocation: {
+    fontSize: 14,
+    color: '#64748b'
+  },
+  applicationMeta: {
+    fontSize: 12,
+    color: '#94a3b8'
   }
 });
