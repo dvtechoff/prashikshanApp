@@ -26,8 +26,14 @@ export default function ApplicationDetailScreen() {
   const [facultyComment, setFacultyComment] = useState('');
 
   const role = currentUser?.role ?? 'STUDENT';
-  const canApprove = role === 'FACULTY' || role === 'INDUSTRY';
   const isFaculty = role === 'FACULTY';
+  
+  // Check if the current user has already made a decision
+  const hasAlreadyDecided = isFaculty 
+    ? application?.faculty_status !== 'PENDING'
+    : application?.industry_status !== 'PENDING';
+  
+  const canApprove = (role === 'FACULTY' || role === 'INDUSTRY') && !hasAlreadyDecided;
 
   const handleDecision = async (decision: 'APPROVED' | 'REJECTED') => {
     if (!application) {

@@ -1,14 +1,73 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useApplicationList } from '@/hooks/useApplications';
 import { useCurrentUserQuery } from '@/hooks/useCurrentUser';
 import { useInternshipList } from '@/hooks/useInternships';
 import { useLogbookEntryList } from '@/hooks/useLogbookEntries';
 
-const ProgressBar = ({ value }: { value: number }) => (
-  <View style={styles.progressTrack}>
-    <View style={[styles.progressFill, { width: `${Math.min(100, value)}%` }]} />
+const StatCard = ({ 
+  icon, 
+  iconColor, 
+  iconBg, 
+  value, 
+  label 
+}: { 
+  icon: any; 
+  iconColor: string; 
+  iconBg: string; 
+  value: string | number; 
+  label: string;
+}) => (
+  <View style={styles.statCard}>
+    <View style={[styles.iconContainer, { backgroundColor: iconBg }]}>
+      {icon}
+    </View>
+    <Text style={styles.statValue}>{value}</Text>
+    <Text style={styles.statLabel}>{label}</Text>
+  </View>
+);
+
+const ProgressItem = ({ 
+  label, 
+  value, 
+  color 
+}: { 
+  label: string; 
+  value: number; 
+  color: string;
+}) => (
+  <View style={styles.progressItem}>
+    <View style={styles.progressHeader}>
+      <Text style={styles.progressLabel}>{label}</Text>
+      <Text style={styles.progressValue}>{value}%</Text>
+    </View>
+    <View style={styles.progressTrack}>
+      <View style={[styles.progressFill, { width: `${value}%`, backgroundColor: color }]} />
+    </View>
+  </View>
+);
+
+const SkillItem = ({ 
+  icon, 
+  iconBg, 
+  iconColor, 
+  name, 
+  percentage 
+}: { 
+  icon: any; 
+  iconBg: string; 
+  iconColor: string; 
+  name: string; 
+  percentage: number;
+}) => (
+  <View style={styles.skillItem}>
+    <View style={[styles.skillIcon, { backgroundColor: iconBg }]}>
+      {icon}
+    </View>
+    <Text style={styles.skillName}>{name}</Text>
+    <Text style={[styles.skillPercentage, { color: iconColor }]}>{percentage}%</Text>
   </View>
 );
 
@@ -17,7 +76,6 @@ export default function AnalyticsScreen() {
   const { data: internships } = useInternshipList();
   const { data: applications } = useApplicationList();
   const { data: logbookEntries } = useLogbookEntryList();
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'month' | 'semester'>('all');
 
   const role = user?.role;
 
@@ -26,43 +84,152 @@ export default function AnalyticsScreen() {
     if (role !== 'FACULTY') return null;
 
     const totalStudents = new Set((applications ?? []).map(app => app.student_id)).size;
-    const pendingApprovals = (applications ?? []).filter(
-      app => app.faculty_status === 'PENDING'
-    ).length;
-    const approvedApplications = (applications ?? []).filter(
-      app => app.faculty_status === 'APPROVED'
-    ).length;
-    const rejectedApplications = (applications ?? []).filter(
-      app => app.faculty_status === 'REJECTED'
-    ).length;
+    const industryPartners = new Set((internships ?? []).map(int => int.posted_by)).size;
 
-    const totalLogbooks = logbookEntries?.length ?? 0;
-    const approvedLogbooks = (logbookEntries ?? []).filter(entry => entry.approved).length;
-    const pendingLogbooks = totalLogbooks - approvedLogbooks;
-    const logbookCompletionRate = totalLogbooks > 0 ? (approvedLogbooks / totalLogbooks) * 100 : 0;
+    const totalApplications = applications?.length ?? 0;
 
-    const totalHours = (logbookEntries ?? []).reduce((sum, entry) => sum + entry.hours, 0);
-    const avgHoursPerStudent = totalStudents > 0 ? totalHours / totalStudents : 0;
+    /**
+     * INTERNSHIP TRACKING LOGIC:
+     * 
+     * 1. ENROLLED: Student has been approved by BOTH faculty AND industry
+     *    - application.faculty_status === 'APPROVED'
+     *    - application.industry_status === 'APPROVED'
+     *    - Student is officially enrolled and can start the internship
+     * 
+     * 2. COMPLETED: Student has finished the internship requirements
+     *    - Must be enrolled first (both approvals)
+     *    - Has submitted logbook entries
+     *    - Internship duration has passed OR
+     *    - Has accumulated required hours based on duration
+     *    - All logbook entries are approved by faculty
+     * 
+     * 3. IN PROGRESS: Student is currently doing the internship
+     *    - Must be enrolled (both approvals)
+     *    - Has started submitting logbook entries (at least one entry)
+     *    - Has NOT yet completed all requirements
+     *    - May have some pending logbook approvals
+     */
 
-    const creditsAwarded = approvedApplications * 4;
+    // Get all enrolled applications (approved by both faculty and industry)
+    const enrolledApplications = (applications ?? []).filter(
+      app => app.faculty_status === 'APPROVED' && app.industry_status === 'APPROVED'
+    );
+
+    // Track internship status for each enrolled application
+    const internshipStatuses = enrolledApplications.map(app => {
+      // Get the internship details
+      const internship = (internships ?? []).find(int => int.id === app.internship_id);
+      
+      // Get all logbook entries for this application
+      const appLogbooks = (logbookEntries ?? []).filter(entry => entry.application_id === app.id);
+      
+      // Calculate if internship is completed
+      const hasLogbookEntries = appLogbooks.length > 0;
+      const allLogbooksApproved = appLogbooks.length > 0 && appLogbooks.every(entry => entry.approved);
+      
+      // Calculate total hours worked
+      const totalHoursWorked = appLogbooks.reduce((sum, entry) => sum + entry.hours, 0);
+      
+      // Estimate required hours (assuming 40 hours per week for duration_weeks)
+      const requiredHours = (internship?.duration_weeks ?? 8) * 40;
+      
+      // Check if internship end date has passed
+      let hasEndDatePassed = false;
+      if (internship?.start_date && internship?.duration_weeks) {
+        const startDate = new Date(internship.start_date);
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + (internship.duration_weeks * 7));
+        hasEndDatePassed = new Date() > endDate;
+      }
+      
+      // Determine status
+      let status: 'enrolled' | 'in_progress' | 'completed';
+      
+      if (allLogbooksApproved && (totalHoursWorked >= requiredHours || hasEndDatePassed)) {
+        // Completed: All logbooks approved AND (met hour requirement OR duration passed)
+        status = 'completed';
+      } else if (hasLogbookEntries) {
+        // In Progress: Has started working (has logbook entries)
+        status = 'in_progress';
+      } else {
+        // Enrolled: Approved but not yet started working
+        status = 'enrolled';
+      }
+      
+      return {
+        applicationId: app.id,
+        studentId: app.student_id,
+        status,
+        totalHoursWorked,
+        requiredHours,
+        logbookCount: appLogbooks.length,
+        approvedLogbookCount: appLogbooks.filter(entry => entry.approved).length
+      };
+    });
+
+    // Count each status
+    const enrolledCount = internshipStatuses.filter(s => s.status === 'enrolled').length;
+    const inProgressCount = internshipStatuses.filter(s => s.status === 'in_progress').length;
+    const completedCount = internshipStatuses.filter(s => s.status === 'completed').length;
+
+    // Calculate percentages based on total enrolled students
+    const totalEnrolled = enrolledApplications.length;
+    const enrolledPercentage = totalEnrolled > 0 ? (enrolledCount / totalEnrolled) * 100 : 0;
+    const inProgressPercentage = totalEnrolled > 0 ? (inProgressCount / totalEnrolled) * 100 : 0;
+    const completedPercentage = totalEnrolled > 0 ? (completedCount / totalEnrolled) * 100 : 0;
+
+    // Calculate top skills based on internship postings and applications
+    const skillDemand: Record<string, { internshipCount: number; applicationCount: number }> = {};
+    
+    (internships ?? []).forEach((internship) => {
+      const internshipApplications = (applications ?? []).filter(app => app.internship_id === internship.id);
+      
+      (internship.skills ?? []).forEach((skill) => {
+        if (!skillDemand[skill]) {
+          skillDemand[skill] = { internshipCount: 0, applicationCount: 0 };
+        }
+        skillDemand[skill].internshipCount += 1;
+        skillDemand[skill].applicationCount += internshipApplications.length;
+      });
+    });
+
+    // Calculate demand score (weighted: 60% application count, 40% internship count)
+    const skillsWithScores = Object.entries(skillDemand).map(([skill, data]) => {
+      const maxApplications = Math.max(...Object.values(skillDemand).map(d => d.applicationCount), 1);
+      const maxInternships = Math.max(...Object.values(skillDemand).map(d => d.internshipCount), 1);
+      
+      const normalizedApplications = (data.applicationCount / maxApplications) * 100;
+      const normalizedInternships = (data.internshipCount / maxInternships) * 100;
+      
+      const demandScore = (normalizedApplications * 0.6) + (normalizedInternships * 0.4);
+      
+      return {
+        skill,
+        score: Math.round(demandScore),
+        internshipCount: data.internshipCount,
+        applicationCount: data.applicationCount
+      };
+    });
+
+    // Sort by demand score and get top 3
+    const topSkills = skillsWithScores
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
 
     return {
       totalStudents,
-      pendingApprovals,
-      approvedApplications,
-      rejectedApplications,
-      approvalRate: approvedApplications + rejectedApplications > 0
-        ? (approvedApplications / (approvedApplications + rejectedApplications)) * 100
-        : 0,
-      totalLogbooks,
-      approvedLogbooks,
-      pendingLogbooks,
-      logbookCompletionRate,
-      totalHours,
-      avgHoursPerStudent,
-      creditsAwarded
+      industryPartners,
+      enrolledPercentage: Math.round(enrolledPercentage),
+      completedPercentage: Math.round(completedPercentage),
+      inProgressPercentage: Math.round(inProgressPercentage),
+      enrolledCount,
+      inProgressCount,
+      completedCount,
+      totalEnrolled,
+      topSkills,
+      internshipStatuses
     };
-  }, [role, applications, logbookEntries]);
+  }, [role, applications, logbookEntries, internships]);
 
   const totalInternships = internships?.length ?? 0;
   const approvedApplications = applications?.filter((app) => app.industry_status === 'APPROVED' && app.faculty_status === 'APPROVED').length ?? 0;
@@ -93,158 +260,122 @@ export default function AnalyticsScreen() {
   if (role === 'FACULTY' && facultyMetrics) {
     return (
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>{analyticsCopy.headline}</Text>
-        <Text style={styles.subtitle}>{analyticsCopy.description}</Text>
-
-        <View style={styles.filterRow}>
-          {(['all', 'month', 'semester'] as const).map((filter) => (
-            <Pressable
-              key={filter}
-              style={[styles.filterChip, selectedFilter === filter && styles.filterChipActive]}
-              onPress={() => setSelectedFilter(filter)}
-            >
-              <Text style={[styles.filterChipText, selectedFilter === filter && styles.filterChipTextActive]}>
-                {filter === 'all' ? 'All Time' : filter === 'month' ? 'This Month' : 'This Semester'}
-              </Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Pressable style={styles.menuButton}>
+              <Ionicons name="menu" size={24} color="#0f172a" />
             </Pressable>
-          ))}
+            <Text style={styles.headerTitle}>Analytics Dashboard</Text>
+          </View>
+          <Pressable style={styles.notificationButton}>
+            <Ionicons name="notifications-outline" size={24} color="#0f172a" />
+          </Pressable>
         </View>
 
-        <View style={styles.grid}>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Total advisees</Text>
-            <Text style={styles.metricValue}>{facultyMetrics.totalStudents}</Text>
-            <ProgressBar value={Math.min(100, facultyMetrics.totalStudents * 5)} />
-            <Text style={styles.metricCaption}>Students under supervision</Text>
-          </View>
-
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Pending approvals</Text>
-            <Text style={styles.metricValue}>{facultyMetrics.pendingApprovals}</Text>
-            <ProgressBar value={Math.min(100, facultyMetrics.pendingApprovals * 10)} />
-            <Text style={styles.metricCaption}>Applications awaiting review</Text>
-          </View>
-
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Logbook completion</Text>
-            <Text style={styles.metricValue}>{facultyMetrics.logbookCompletionRate.toFixed(0)}%</Text>
-            <ProgressBar value={facultyMetrics.logbookCompletionRate} />
-            <Text style={styles.metricCaption}>{facultyMetrics.approvedLogbooks} of {facultyMetrics.totalLogbooks} approved</Text>
-          </View>
-
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Credits awarded</Text>
-            <Text style={styles.metricValue}>{facultyMetrics.creditsAwarded}</Text>
-            <ProgressBar value={Math.min(100, facultyMetrics.creditsAwarded * 2)} />
-            <Text style={styles.metricCaption}>NEP credits approved</Text>
-          </View>
+        {/* Stats Cards */}
+        <View style={styles.statsRow}>
+          <StatCard
+            icon={<Ionicons name="people" size={24} color="#3b82f6" />}
+            iconColor="#3b82f6"
+            iconBg="#dbeafe"
+            value={facultyMetrics.totalStudents.toLocaleString()}
+            label="Total Students"
+          />
+          <StatCard
+            icon={<MaterialCommunityIcons name="briefcase" size={24} color="#8b5cf6" />}
+            iconColor="#8b5cf6"
+            iconBg="#ede9fe"
+            value={facultyMetrics.industryPartners}
+            label="Industry Partners"
+          />
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Application approval trends</Text>
-          <Text style={styles.sectionSubtitle}>Your decision breakdown</Text>
-          <View style={styles.approvalStats}>
-            <View style={styles.approvalItem}>
-              <View style={[styles.approvalBar, { width: `${facultyMetrics.approvalRate}%`, backgroundColor: '#10b981' }]} />
-              <Text style={styles.approvalLabel}>
-                Approved: {facultyMetrics.approvedApplications} ({facultyMetrics.approvalRate.toFixed(0)}%)
-              </Text>
-            </View>
-            <View style={styles.approvalItem}>
-              <View style={[styles.approvalBar, { width: `${100 - facultyMetrics.approvalRate}%`, backgroundColor: '#ef4444' }]} />
-              <Text style={styles.approvalLabel}>
-                Rejected: {facultyMetrics.rejectedApplications} ({(100 - facultyMetrics.approvalRate).toFixed(0)}%)
-              </Text>
-            </View>
+        {/* Internship Participation */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Internship Participation</Text>
+            <Pressable>
+              <Text style={styles.viewAllButton}>View All</Text>
+            </Pressable>
           </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Logbook submission activity</Text>
-          <Text style={styles.sectionSubtitle}>Weekly submissions by students</Text>
-          <View style={styles.barChart}>
-            {Array.from({ length: 6 }).map((_, index) => {
-              const average = facultyMetrics.totalLogbooks / 6;
-              const weekSubmissions = Math.max(0, Math.round(average + (Math.random() - 0.5) * average));
-
-              return (
-                <View key={index} style={styles.barColumn}>
-                  <View style={[styles.bar, { height: Math.max(24, 24 + weekSubmissions * 8) }]} />
-                  <Text style={styles.barLabel}>W{index + 1}</Text>
-                  <Text style={styles.barValue}>{weekSubmissions}</Text>
-                </View>
-              );
-            })}
+          <Text style={styles.cardSubtitle}>
+            Tracking {facultyMetrics.totalEnrolled} enrolled students
+          </Text>
+          <View style={styles.participationList}>
+            <ProgressItem 
+              label="Enrolled" 
+              value={facultyMetrics.enrolledPercentage} 
+              color="#3b82f6" 
+            />
+            <Text style={styles.progressDescription}>
+              {facultyMetrics.enrolledCount} students approved by both faculty & industry
+            </Text>
+            
+            <ProgressItem 
+              label="In Progress" 
+              value={facultyMetrics.inProgressPercentage} 
+              color="#f59e0b" 
+            />
+            <Text style={styles.progressDescription}>
+              {facultyMetrics.inProgressCount} students actively working (have logbook entries)
+            </Text>
+            
+            <ProgressItem 
+              label="Completed" 
+              value={facultyMetrics.completedPercentage} 
+              color="#10b981" 
+            />
+            <Text style={styles.progressDescription}>
+              {facultyMetrics.completedCount} students finished (met hour requirements & all logbooks approved)
+            </Text>
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Student engagement</Text>
-          <View style={styles.engagementRow}>
-            <View style={styles.engagementCard}>
-              <Text style={styles.engagementValue}>{facultyMetrics.avgHoursPerStudent.toFixed(1)}</Text>
-              <Text style={styles.engagementLabel}>Avg hours per student</Text>
-            </View>
-            <View style={styles.engagementCard}>
-              <Text style={styles.engagementValue}>{facultyMetrics.pendingLogbooks}</Text>
-              <Text style={styles.engagementLabel}>Pending logbooks</Text>
-            </View>
+        {/* Student Performance Chart */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Student Performance</Text>
+          <View style={styles.chartPlaceholder}>
+            <MaterialCommunityIcons name="chart-bar" size={48} color="#cbd5e1" />
+            <Text style={styles.chartPlaceholderText}>Performance Chart</Text>
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Approval efficiency trend</Text>
-          <Text style={styles.sectionSubtitle}>Weekly approval rate over time</Text>
-          <View style={styles.lineChart}>
-            <View style={styles.lineChartGrid}>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <View key={i} style={styles.gridLine} />
-              ))}
-            </View>
-            <View style={styles.lineChartContent}>
-              {Array.from({ length: 6 }).map((_, index) => {
-                const weekRate = Math.max(50, Math.min(95, facultyMetrics.approvalRate + (Math.random() - 0.5) * 15));
-                const nextIndex = index + 1;
-                const nextRate = nextIndex < 6 
-                  ? Math.max(50, Math.min(95, facultyMetrics.approvalRate + (Math.random() - 0.5) * 15))
-                  : weekRate;
+        {/* Top Skills in Demand */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Top Skills in Demand</Text>
+          <View style={styles.skillsList}>
+            {facultyMetrics.topSkills.length > 0 ? (
+              facultyMetrics.topSkills.map((skillData, index) => {
+                // Assign colors and icons based on index
+                const colors = [
+                  { iconName: 'star' as const, iconColor: '#ea580c', iconBg: '#fed7aa' },
+                  { iconName: 'fire' as const, iconColor: '#0ea5e9', iconBg: '#bae6fd' },
+                  { iconName: 'trending-up' as const, iconColor: '#8b5cf6', iconBg: '#e9d5ff' }
+                ];
+                const colorConfig = colors[index] || colors[0];
                 
                 return (
-                  <View key={index} style={styles.lineChartColumn}>
-                    <View style={styles.lineChartPoint}>
-                      <View 
-                        style={[
-                          styles.dataPoint, 
-                          { bottom: `${weekRate}%` }
-                        ]} 
-                      />
-                      {index < 5 && (
-                        <View 
-                          style={[
-                            styles.lineSegment,
-                            {
-                              bottom: `${weekRate}%`,
-                              height: Math.abs(nextRate - weekRate),
-                              transform: [
-                                { translateY: nextRate < weekRate ? -Math.abs(nextRate - weekRate) : 0 }
-                              ]
-                            }
-                          ]} 
-                        />
-                      )}
-                    </View>
-                    <Text style={styles.lineChartLabel}>W{index + 1}</Text>
-                    <Text style={styles.lineChartValue}>{weekRate.toFixed(0)}%</Text>
-                  </View>
+                  <SkillItem
+                    key={skillData.skill}
+                    icon={<MaterialCommunityIcons name={colorConfig.iconName} size={20} color={colorConfig.iconColor} />}
+                    iconBg={colorConfig.iconBg}
+                    iconColor={colorConfig.iconColor}
+                    name={skillData.skill}
+                    percentage={skillData.score}
+                  />
                 );
-              })}
-            </View>
+              })
+            ) : (
+              <Text style={styles.emptySkillText}>No skills data available yet.</Text>
+            )}
           </View>
         </View>
       </ScrollView>
     );
   }
 
+  // Student and Industry view (existing design)
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>{analyticsCopy.headline}</Text>
@@ -254,100 +385,37 @@ export default function AnalyticsScreen() {
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>Internships open</Text>
           <Text style={styles.metricValue}>{totalInternships}</Text>
-          <ProgressBar value={Math.min(100, totalInternships * 10)} />
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${Math.min(100, totalInternships * 10)}%` }]} />
+          </View>
           <Text style={styles.metricCaption}>Active opportunities published</Text>
         </View>
 
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>Applications approved</Text>
           <Text style={styles.metricValue}>{approvedApplications}</Text>
-          <ProgressBar value={approvedApplications * 15} />
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${Math.min(100, approvedApplications * 15)}%` }]} />
+          </View>
           <Text style={styles.metricCaption}>Students cleared for credits</Text>
         </View>
 
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>Applications pending</Text>
           <Text style={styles.metricValue}>{pendingApplications}</Text>
-          <ProgressBar value={pendingApplications * 20} />
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${Math.min(100, pendingApplications * 20)}%` }]} />
+          </View>
           <Text style={styles.metricCaption}>Awaiting faculty / industry review</Text>
         </View>
 
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>Hours logged</Text>
           <Text style={styles.metricValue}>{totalHours}</Text>
-          <ProgressBar value={Math.min(100, totalHours)} />
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${Math.min(100, totalHours)}%` }]} />
+          </View>
           <Text style={styles.metricCaption}>Total internship commitment tracked</Text>
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Participation trend</Text>
-        <Text style={styles.sectionSubtitle}>Weekly logbook activity</Text>
-        <View style={styles.barChart}>
-          {Array.from({ length: 6 }).map((_, index) => {
-            const average = totalHours / 6;
-            const weekHours = Math.max(0, Math.round(average - index * 1.5));
-
-            return (
-              <View key={index} style={styles.barColumn}>
-                <View style={[styles.bar, { height: 24 + weekHours * 6 }]} />
-                <Text style={styles.barLabel}>W{index + 1}</Text>
-              </View>
-            );
-          })}
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Completion rate trend</Text>
-        <Text style={styles.sectionSubtitle}>Application approval success over 6 weeks</Text>
-        <View style={styles.lineChart}>
-          <View style={styles.lineChartGrid}>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <View key={i} style={styles.gridLine} />
-            ))}
-          </View>
-          <View style={styles.lineChartContent}>
-            {Array.from({ length: 6 }).map((_, index) => {
-              const baseRate = approvedApplications > 0 
-                ? (approvedApplications / (applications?.length ?? 1)) * 100 
-                : 20;
-              const weekRate = Math.max(10, Math.min(95, baseRate + (Math.random() - 0.5) * 20 + index * 5));
-              const nextIndex = index + 1;
-              const nextRate = nextIndex < 6 
-                ? Math.max(10, Math.min(95, baseRate + (Math.random() - 0.5) * 20 + nextIndex * 5))
-                : weekRate;
-              
-              return (
-                <View key={index} style={styles.lineChartColumn}>
-                  <View style={styles.lineChartPoint}>
-                    <View 
-                      style={[
-                        styles.dataPoint, 
-                        { bottom: `${weekRate}%` }
-                      ]} 
-                    />
-                    {index < 5 && (
-                      <View 
-                        style={[
-                          styles.lineSegment,
-                          {
-                            bottom: `${weekRate}%`,
-                            height: Math.abs(nextRate - weekRate),
-                            transform: [
-                              { translateY: nextRate < weekRate ? -Math.abs(nextRate - weekRate) : 0 }
-                            ]
-                          }
-                        ]} 
-                      />
-                    )}
-                  </View>
-                  <Text style={styles.lineChartLabel}>W{index + 1}</Text>
-                  <Text style={styles.lineChartValue}>{weekRate.toFixed(0)}%</Text>
-                </View>
-              );
-            })}
-          </View>
         </View>
       </View>
 
@@ -378,6 +446,181 @@ const styles = StyleSheet.create({
     gap: 20,
     backgroundColor: '#f8fafc'
   },
+  // Faculty Dashboard Styles
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: '#ffffff'
+  },
+  notificationButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: '#ffffff'
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f172a'
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2
+  },
+  iconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#0f172a'
+  },
+  statLabel: {
+    fontSize: 13,
+    color: '#64748b',
+    textAlign: 'center'
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 18,
+    gap: 16,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#0f172a'
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: -8
+  },
+  viewAllButton: {
+    fontSize: 14,
+    color: '#3b82f6',
+    fontWeight: '500'
+  },
+  participationList: {
+    gap: 16
+  },
+  progressItem: {
+    gap: 8
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  progressLabel: {
+    fontSize: 15,
+    color: '#475569',
+    fontWeight: '500'
+  },
+  progressValue: {
+    fontSize: 15,
+    color: '#0f172a',
+    fontWeight: '600'
+  },
+  progressDescription: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: -8,
+    marginLeft: 4
+  },
+  progressTrack: {
+    height: 8,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 999,
+    overflow: 'hidden'
+  },
+  progressFill: {
+    height: 8,
+    borderRadius: 999
+  },
+  chartPlaceholder: {
+    height: 180,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8
+  },
+  chartPlaceholderText: {
+    fontSize: 15,
+    color: '#94a3b8',
+    fontWeight: '500'
+  },
+  skillsList: {
+    gap: 12
+  },
+  skillItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
+  },
+  skillIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  skillName: {
+    flex: 1,
+    fontSize: 15,
+    color: '#475569',
+    fontWeight: '500'
+  },
+  skillPercentage: {
+    fontSize: 15,
+    fontWeight: '600'
+  },
+  // Existing styles for Student/Industry
   title: {
     fontSize: 24,
     fontWeight: '700',
@@ -418,16 +661,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94a3b8'
   },
-  progressTrack: {
-    height: 8,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 999,
-    overflow: 'hidden'
-  },
-  progressFill: {
-    height: 8,
-    backgroundColor: '#2563eb'
-  },
   section: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
@@ -447,92 +680,6 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     color: '#64748b'
   },
-  barChart: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between'
-  },
-  barColumn: {
-    alignItems: 'center',
-    gap: 6,
-    flex: 1
-  },
-  bar: {
-    width: 24,
-    borderRadius: 12,
-    backgroundColor: '#6366f1'
-  },
-  barLabel: {
-    fontSize: 12,
-    color: '#94a3b8'
-  },
-  barValue: {
-    fontSize: 10,
-    color: '#64748b',
-    fontWeight: '600'
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8
-  },
-  filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0'
-  },
-  filterChipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb'
-  },
-  filterChipText: {
-    color: '#64748b',
-    fontSize: 13,
-    fontWeight: '500'
-  },
-  filterChipTextActive: {
-    color: '#ffffff'
-  },
-  approvalStats: {
-    gap: 12
-  },
-  approvalItem: {
-    gap: 8
-  },
-  approvalBar: {
-    height: 8,
-    borderRadius: 999,
-    minWidth: 20
-  },
-  approvalLabel: {
-    fontSize: 14,
-    color: '#475569'
-  },
-  engagementRow: {
-    flexDirection: 'row',
-    gap: 12
-  },
-  engagementCard: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    gap: 8
-  },
-  engagementValue: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#2563eb'
-  },
-  engagementLabel: {
-    fontSize: 13,
-    color: '#64748b',
-    textAlign: 'center'
-  },
   skillList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -550,74 +697,5 @@ const styles = StyleSheet.create({
   },
   emptySkillText: {
     color: '#94a3b8'
-  },
-  lineChart: {
-    height: 200,
-    position: 'relative',
-    marginTop: 8
-  },
-  lineChartGrid: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 30,
-    justifyContent: 'space-between'
-  },
-  gridLine: {
-    height: 1,
-    backgroundColor: '#e2e8f0'
-  },
-  lineChartContent: {
-    flexDirection: 'row',
-    height: '100%',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4
-  },
-  lineChartColumn: {
-    flex: 1,
-    alignItems: 'center',
-    height: '100%',
-    position: 'relative'
-  },
-  lineChartPoint: {
-    position: 'absolute',
-    bottom: 30,
-    left: 0,
-    right: 0,
-    top: 0,
-    alignItems: 'center'
-  },
-  dataPoint: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#2563eb',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-    position: 'absolute',
-    zIndex: 2
-  },
-  lineSegment: {
-    width: 3,
-    backgroundColor: '#2563eb',
-    position: 'absolute',
-    left: '50%',
-    marginLeft: -1.5,
-    zIndex: 1
-  },
-  lineChartLabel: {
-    fontSize: 12,
-    color: '#94a3b8',
-    position: 'absolute',
-    bottom: 12
-  },
-  lineChartValue: {
-    fontSize: 10,
-    color: '#64748b',
-    fontWeight: '600',
-    position: 'absolute',
-    bottom: 0
   }
 });
