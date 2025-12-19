@@ -13,9 +13,12 @@ export const listInternships = async (filters?: InternshipFilters): Promise<Inte
 				remote: filters.remote,
 				min_credits: filters.minCredits,
 				location: filters.location?.trim() || undefined,
-				skills: filters.skills?.map((skill) => skill.trim()).filter((skill) => skill.length > 0)
+				skills: filters.skills?.map((skill) => skill.trim()).filter((skill) => skill.length > 0),
+				status: 'OPEN' // Only fetch OPEN internships for students
 			}
-		: {};
+		: {
+				status: 'OPEN' // Default to OPEN if no filters provided
+			};
 
 	const sanitizedParams = Object.fromEntries(
 		Object.entries(params).filter(([, value]) => {
@@ -33,10 +36,13 @@ export const listInternships = async (filters?: InternshipFilters): Promise<Inte
 		params: sanitizedParams
 	});
 
+	// Filter out CLOSED internships on client side as well (double protection)
+	const openInternships = data.filter((internship) => internship.status !== 'CLOSED');
+
 	if (filters?.search) {
 		const term = filters.search.trim().toLowerCase();
 		if (term.length > 0) {
-			return data.filter((internship) => {
+			return openInternships.filter((internship) => {
 				const haystack = [
 					internship.title,
 					internship.description,
@@ -50,7 +56,7 @@ export const listInternships = async (filters?: InternshipFilters): Promise<Inte
 		}
 	}
 
-	return data;
+	return openInternships;
 };
 
 export const getInternship = async (id: string): Promise<Internship> => {

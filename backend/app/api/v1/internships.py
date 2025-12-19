@@ -26,14 +26,25 @@ async def list_internships(
         default=None,
         description="Case-insensitive match against internship location",
     ),
+    status: Optional[str] = Query(
+        default="OPEN",
+        description="Filter by status (OPEN, CLOSED). Defaults to OPEN to show only active internships to students.",
+    ),
     session: AsyncSession = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
 ) -> List[InternshipRead]:
+    # Default to OPEN for students, allow admins/industry to see all if they pass status=None
+    filter_status = status
+    if current_user.role == models.UserRole.STUDENT and status is None:
+        filter_status = "OPEN"
+    
     internships = await crud.list_internships(
         session,
         skills=skills,
         remote=remote,
         min_credits=min_credits,
         location=location,
+        status=filter_status,
     )
     return [InternshipRead.model_validate(internship) for internship in internships]
 

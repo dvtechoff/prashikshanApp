@@ -157,6 +157,7 @@ async def list_internships(
     min_credits: Optional[int] = None,
     location: Optional[str] = None,
     skills: Optional[List[str]] = None,
+    status: Optional[str] = None,
 ) -> List[models.Internship]:
     query = select(models.Internship).order_by(models.Internship.created_at.desc())
 
@@ -164,6 +165,8 @@ async def list_internships(
         query = query.where(models.Internship.remote == remote)
     if min_credits is not None:
         query = query.where(models.Internship.credits >= min_credits)
+    if status is not None:
+        query = query.where(models.Internship.status == status)
 
     result = await session.execute(query)
     internships: List[models.Internship] = list(result.scalars().all())
